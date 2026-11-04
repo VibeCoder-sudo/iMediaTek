@@ -26,6 +26,8 @@
     download: { running: false, progress: {}, results: null, dir: null },
     inspect: null,
     busy: false,
+    anim: null,
+    pop: null,
     logs: [],
     showRaw: false,
     info: null,
@@ -42,7 +44,7 @@
     el.className = 'toast';
     el.textContent = text;
     $('#toasts').appendChild(el);
-    setTimeout(() => el.remove(), 2200);
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 220); }, 2000);
   }
 
   function log(text, cls) {
@@ -90,18 +92,18 @@
 
   /* ---------- views ---------- */
   const NAV = [
-    ['overview', 'bi-house-door-fill', 'Overview'],
-    ['install', 'bi-download', 'Install'],
-    ['config', 'bi-sliders2', 'Configuration'],
-    ['releases', 'bi-box-seam-fill', 'Releases'],
-    ['logs', 'bi-terminal-fill', 'Logs'],
-    ['safety', 'bi-shield-lock-fill', 'Safety'],
+    ['overview', 'bi-house-door-fill', 'Overview', 't-blue'],
+    ['install', 'bi-download', 'Install', 't-green'],
+    ['config', 'bi-sliders2', 'Configuration', 't-gray'],
+    ['releases', 'bi-box-seam-fill', 'Releases', 't-orange'],
+    ['logs', 'bi-terminal-fill', 'Logs', 't-purple'],
+    ['safety', 'bi-shield-lock-fill', 'Safety', 't-red'],
   ];
 
   function renderNav() {
-    $('#nav').innerHTML = NAV.map(([id, ic, label]) => `
+    $('#nav').innerHTML = NAV.map(([id, ic, label, tile]) => `
       <button class="nav-item ${state.view === id ? 'active' : ''}" data-action="nav" data-id="${id}">
-        ${icon(ic)}<span>${label}</span>
+        <span class="nav-ic ${tile}">${icon(ic)}</span><span>${label}</span>
         ${id === 'install' ? `<span class="count">${state.done.size}/${D.steps.length}</span>` : ''}
       </button>`).join('');
     const live = state.source === 'remote';
@@ -215,7 +217,7 @@
 
   function prepareBody(s) {
     return `<ul class="checklist">${s.checklist.map((text, i) => `
-      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${icon('bi-check-lg')}</button><span>${esc(text)}</span></li>`).join('')}</ul>`;
+      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-pop="check-${i}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${icon('bi-check-lg')}</button><span>${esc(text)}</span></li>`).join('')}</ul>`;
   }
 
   function inspectResult() {
@@ -287,7 +289,7 @@
         <div class="row"><span class="icon-tile t-red">${icon('bi-lock-fill')}</span><div class="grow"><div class="title">Never touched</div><div class="sub mono">/dev/sdc56 (boot_b) · /dev/sdc61 (userdata)</div></div><span class="badge red">protected</span></div>
       </div>
       ${cmdBox(s.command)}
-      <ul class="checklist"><li><button class="check ${state.confirmed ? 'on' : ''}" data-action="confirm" aria-pressed="${state.confirmed}">${icon('bi-check-lg')}</button><span>I checked that the destination is boot_a and I have the Arch rescue system on boot_b.</span></li></ul>
+      <ul class="checklist"><li><button class="check ${state.confirmed ? 'on' : ''}" data-pop="confirm" data-action="confirm" aria-pressed="${state.confirmed}">${icon('bi-check-lg')}</button><span>I checked that the destination is boot_a and I have the Arch rescue system on boot_b.</span></li></ul>
       ${runButton(s, !state.confirmed || !state.download.results)}`;
   }
 
@@ -405,11 +407,22 @@
     const top = view.scrollTop;
     view.innerHTML = `<div class="page">${VIEWS[state.view]()}</div>`;
     view.scrollTop = top;
+    // One-shot motion: a render caused by navigation fades in; a plain re-render stays still.
+    if (state.anim) {
+      const target = state.anim === 'step' ? view.querySelector('.step-card') : view.querySelector('.page');
+      if (target) target.classList.add('enter');
+      state.anim = null;
+    }
+    if (state.pop) {
+      const el = view.querySelector(`[data-pop="${state.pop}"]`);
+      if (el) el.classList.add('pop');
+      state.pop = null;
+    }
     const box = $('#console');
     if (box) box.scrollTop = box.scrollHeight;
   }
 
-  function go(id) { state.view = id; render(); $('#view').scrollTop = 0; }
+  function go(id) { state.view = id; state.anim = 'page'; render(); $('#view').scrollTop = 0; }
 
   /* ---------- actions ---------- */
   async function loadManifest(quiet) {
@@ -463,6 +476,7 @@
   function enterStep(i) {
     state.step = i;
     if (D.steps[i].autoDone) state.done.add(i); // nothing to run: looking at the choice is enough
+    state.anim = 'step';
     persist(); render();
   }
 
@@ -475,18 +489,23 @@
     check: (el) => {
       const i = Number(el.dataset.i);
       state.checks[i] = !state.checks[i];
+      if (state.checks[i]) state.pop = `check-${i}`;
       if (D.steps[0].checklist.every((_, k) => state.checks[k])) state.done.add(0); else state.done.delete(0);
       persist(); render();
     },
     run: (el) => runStep(el.dataset.step),
-    confirm: () => { state.confirmed = !state.confirmed; render(); },
+    confirm: () => { state.confirmed = !state.confirmed; if (state.confirmed) state.pop = 'confirm'; render(); },
     mark: () => { state.done.add(state.step); persist(); render(); },
     refresh: () => loadManifest(false),
     download: () => runDownload(),
     folder: () => { if (state.download.dir) api.openFolder(state.download.dir); },
     profile: (el) => { applyPreset(el.dataset.id); render(); },
     preset: (el) => { applyPreset(el.dataset.id); render(); },
-    arg: (el) => { state.args[el.dataset.key] = el.checked; persist(); render(); },
+    arg: (el) => {
+      state.args[el.dataset.key] = el.checked; persist();
+      const line = document.querySelector('.cmd code');
+      if (line) { line.textContent = cmdline(); line.nextElementSibling.dataset.text = cmdline(); }
+    },
     range: (el) => { state.returnAfter = Number(el.value); persist(); const v = el.nextElementSibling; if (v) v.textContent = `${state.returnAfter} s`; },
     raw: () => { state.showRaw = !state.showRaw; render(); },
     open: (el) => { if (el.dataset.url) api.openExternal(el.dataset.url); },
