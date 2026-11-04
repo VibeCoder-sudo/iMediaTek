@@ -37,6 +37,8 @@
 
   /* ---------- helpers ---------- */
   const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const host = () => window.HOSTS[state.info && state.info.platform] || window.HOSTS.linux;
+  const fill = (text) => String(text).replace(/\{(computer|files|console|py)\}/g, (m, key) => host()[key]);
   const icon = (name) => `<i class="bi ${name}"></i>`;
   // An SVG tick centres exactly; a glyph from the icon font sits wherever its metrics put it.
   const CHECK = '<svg class="tick" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.4 8.1 6.4 11.1 12.6 4.9" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -182,7 +184,7 @@
         <div class="step-head">
           <div class="kicker">Step ${state.step + 1} of ${D.steps.length}</div>
           <h2>${icon(s.icon)}<span>${esc(s.title)}</span></h2>
-          <p>${esc(s.text)}</p>
+          <p>${esc(fill(s.text))}</p>
         </div>
         <div class="step-body">${stepBody(s)}</div>
         <div class="step-actions">
@@ -195,7 +197,7 @@
       </div>`;
   }
 
-  const cmdLine = (c) => `<div class="cmd"><code>${esc(c)}</code><button data-action="copy" data-text="${esc(c)}" title="Copy">${icon('bi-clipboard')}</button></div>`;
+  const cmdLine = (raw) => { const c = fill(raw); return `<div class="cmd"><code>${esc(c)}</code><button data-action="copy" data-text="${esc(c)}" title="Copy">${icon('bi-clipboard')}</button></div>`; };
   const cmdBox = (c) => `<details class="disclose"><summary>${icon('bi-chevron-right')}<span>Show command</span></summary>${cmdLine(c)}</details>`;
 
   function stepBody(s) {
@@ -221,7 +223,7 @@
 
   function prepareBody(s) {
     return `<ul class="checklist">${s.checklist.map((text, i) => `
-      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-pop="check-${i}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${CHECK}</button><span>${esc(text)}</span></li>`).join('')}</ul>`;
+      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-pop="check-${i}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${CHECK}</button><span>${esc(fill(text))}</span></li>`).join('')}</ul>`;
   }
 
   function inspectResult() {
@@ -252,7 +254,7 @@
       <div class="group">${rows}</div>
       <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
         <button class="btn" data-action="download" ${dl.running ? 'disabled' : ''}>${icon('bi-cloud-arrow-down-fill')} ${dl.results ? 'Download again' : 'Download'}</button>
-        ${dl.results && dl.dir ? `<button class="btn secondary" data-action="folder">${icon('bi-folder2-open')} Show in Finder</button>` : ''}
+        ${dl.results && dl.dir ? `<button class="btn secondary" data-action="folder">${icon('bi-folder2-open')} Show in ${host().files}</button>` : ''}
         ${state.done.has(state.step) ? `<span class="badge green">${CHECK} Done</span>` : ''}
       </div>
       ${state.source === 'demo' ? `<p class="footnote">${state.manifestError ? `No release found (${esc(state.manifestError)}). ` : ''}Demo mode: downloads are simulated.</p>` : ''}`;
@@ -303,12 +305,12 @@
       <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${ip.status === 'downloading'
           ? `<button class="btn secondary" data-action="ipsw-pause">${icon('bi-pause-fill')} Pause</button>`
-          : ip.status === 'ok' || ip.skipped ? `<button class="btn secondary" data-action="ipsw-show">${icon('bi-folder2-open')} Show in Finder</button>`
+          : ip.status === 'ok' || ip.skipped ? `<button class="btn secondary" data-action="ipsw-show">${icon('bi-folder2-open')} Show in ${host().files}</button>`
           : `<button class="btn" data-action="ipsw-download" ${busy ? 'disabled' : ''}>${icon('bi-cloud-arrow-down-fill')} ${ip.received ? 'Resume download' : 'Download from Apple'}</button>`}
         ${ip.status !== 'ok' && !ip.skipped ? `<button class="btn secondary" data-action="ipsw-pick" ${busy ? 'disabled' : ''}>${icon('bi-file-earmark-arrow-up')} I already have it…</button>
         <button class="btn plain" data-action="ipsw-skip" ${busy ? 'disabled' : ''}>My phone already has iOS</button>` : ''}
       </div>
-      <p class="footnote">The firmware is downloaded directly from Apple's servers to this Mac. iMediaTek does not host or redistribute it, and using it is subject to Apple's license terms. The download can be paused and resumed.</p>`;
+      <p class="footnote">The firmware is downloaded directly from Apple's servers to this ${host().computer}. iMediaTek does not host or redistribute it, and using it is subject to Apple's license terms. The download can be paused and resumed.</p>`;
   }
 
   function profileBody() {
@@ -413,7 +415,7 @@
         <button class="btn secondary small" data-action="copylog">${icon('bi-clipboard')} Copy</button>
         <button class="btn secondary small" data-action="clearlog">${icon('bi-trash')} Clear</button></div>
       <div class="section-label">Read the phone log by hand</div>
-      ${cmdLine("python3 phone_sh.py 'mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore; cat /sys/fs/pstore/console-ramoops-0' 30")}`;
+      ${cmdLine("{py} phone_sh.py 'mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore; cat /sys/fs/pstore/console-ramoops-0' 30")}`;
   }
 
   /* ----- safety ----- */
@@ -561,7 +563,7 @@
     const s = D.steps[state.step];
     state.busy = true; render();
     try {
-      const result = await api.runStep(stepName, { image: 'rosemary_xnu_boot.img', profile: state.profile, cmdline: cmdline() });
+      const result = await api.runStep(stepName, { console: fill('{console}'), image: 'rosemary_xnu_boot.img', profile: state.profile, cmdline: cmdline() });
       if (stepName === 'inspect') state.inspect = result;
       log(`${s.title}: done (dry run)`, 'ok');
       state.done.add(state.step); persist();

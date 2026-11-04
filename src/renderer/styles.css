@@ -311,3 +311,8 @@ pre.json { max-height: calc(100vh - 260px); }
 .checklist li { padding: 6px 0; }
 .timeline li { padding: 6px 0; }
 .step-body .group { margin-top: 4px; }
+
+/* Windows and Linux have a native title bar: no drag strip, less top padding, no vibrancy. */
+body:not(.vibrant) .titlebar-drag { display: none; }
+body:not(.vibrant) .sidebar-drag { height: 20px; }
+body:not(.vibrant) .view { padding-top: 28px; }

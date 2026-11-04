@@ -86,6 +86,12 @@ node scripts/make-release.mjs 0.1.0 ./release-files --notes "First preview"
 
 `IMEDIATEK_SHOTS=<dir> npx electron .` renders every screen to PNG files and quits.
 
+## Platforms
+
+The installer is Electron, so the interface runs on macOS, Windows and Linux. Wording adapts to the host: "this Mac / this PC", Finder / File Explorer, `python3` / `python`, and the console port (`/dev/cu.usbmodem…` on macOS, `/dev/ttyACM0` on Linux, a COM port on Windows; the phone's Arch console is a USB CDC serial device, which Windows 10 and newer should handle with the built-in driver). On Windows and Linux the native title bar is used instead of the macOS translucent one.
+
+Only the macOS build has been run on real hardware so far. The command-line helpers used today (`phone_sh.py`, `flash_boot_a.py`) open `/dev/...` paths, so they are Unix only; the device backend that replaces the dry-run stub will talk to the phone through a cross-platform serial library instead, and Windows will be tested before it is called supported.
+
 ## Design notes
 
 - Layout and controls follow macOS System Settings: translucent sidebar (native vibrancy on macOS), grouped lists, large titles, light and dark appearance.

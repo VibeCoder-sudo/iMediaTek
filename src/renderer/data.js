@@ -1,6 +1,13 @@
 'use strict';
 
 /* Static knowledge the UI shows: the device, the slot map, boot arguments and every install step. */
+/* Words that differ by host OS. Text and commands carry {tokens} that the interface fills in. */
+window.HOSTS = {
+  darwin: { computer: 'Mac', files: 'Finder', console: '/dev/cu.usbmodemnyam00011', py: 'python3' },
+  win32: { computer: 'PC', files: 'File Explorer', console: 'a COM port: Device Manager > Ports > USB Serial Device', py: 'python' },
+  linux: { computer: 'computer', files: 'file manager', console: '/dev/ttyACM0', py: 'python3' },
+};
+
 window.DATA = {
   device: {
     model: 'POCO M5s',
@@ -52,7 +59,7 @@ window.DATA = {
         'The bootloader of the POCO M5s is unlocked.',
         'The Arch Linux rescue system is installed on boot_b and userdata (the phone boots into it normally).',
         'The phone is charged to at least 50% and connected with a data-capable USB cable.',
-        'You can reach the Arch console on this Mac at /dev/cu.usbmodemnyam00011.',
+        'You can reach the Arch console on this {computer} ({console}).',
         'You have a backup of anything you care about. A test boot is safe by design, but this is a research build.',
         'You know how to leave a stuck boot: hold five fingers on the screen for 1.5 seconds, or hold the power button.',
       ],
@@ -61,7 +68,7 @@ window.DATA = {
       id: 'connect', icon: 'bi-usb-symbol', title: 'Connect',
       kicker: 'Step 2',
       text: 'Open the Arch console over USB. All device actions go through this console, so nothing needs to be installed on the phone beyond the rescue system.',
-      command: "python3 phone_sh.py 'uname -a'",
+      command: "{py} phone_sh.py 'uname -a'",
       run: 'connect', runLabel: 'Connect to the phone', runIcon: 'bi-link-45deg',
     },
     {
@@ -84,7 +91,7 @@ window.DATA = {
     {
       id: 'ipsw', icon: 'bi-file-earmark-zip', title: 'Get iOS',
       kicker: 'Step 6',
-      text: 'iOS itself is not part of this project. The app downloads the official iOS 16.5 firmware (IPSW) straight from Apple to your Mac. The iOS System volume, the dyld shared cache and the cryptexes come from it.',
+      text: 'iOS itself is not part of this project. The app downloads the official iOS 16.5 firmware (IPSW) straight from Apple to your {computer}. The iOS System volume, the dyld shared cache and the cryptexes come from it.',
     },
     {
       id: 'profile', icon: 'bi-sliders', title: 'Choose kernel', autoDone: true,
@@ -95,7 +102,7 @@ window.DATA = {
       id: 'flash', icon: 'bi-cpu', title: 'Flash boot_a',
       kicker: 'Step 7',
       text: 'The boot image is streamed to /dev/sdc36 (boot_a) and read back; the MD5 of the partition must equal the MD5 of the file. boot_b and userdata are never opened for writing.',
-      command: 'python3 flash_boot_a.py',
+      command: '{py} flash_boot_a.py',
       run: 'flash', runLabel: 'Flash boot_a', runIcon: 'bi-lightning-charge-fill', confirm: true,
     },
     {

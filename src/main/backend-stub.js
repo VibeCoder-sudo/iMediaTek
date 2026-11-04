@@ -14,12 +14,12 @@ const PROTECTED = ['/dev/sdc56', '/dev/sdc61'];
 
 const handlers = {
   async connect(params, log) {
-    log('serial: opening /dev/cu.usbmodemnyam00011');
+    log(`serial: opening ${params.console || 'the Arch console'}`);
     await sleep(500);
     log('arch: uname -a');
     await sleep(400);
     log('Linux rosemary 4.19.325-Orion aarch64 (simulated)');
-    return { ok: true, console: '/dev/cu.usbmodemnyam00011', system: 'Arch Linux ARM (slot B)' };
+    return { ok: true, console: params.console || null, system: 'Arch Linux ARM (slot B)' };
   },
 
   async inspect(params, log) {

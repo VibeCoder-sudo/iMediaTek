@@ -46,7 +46,7 @@ app.whenReady().then(() => {
   ipcMain.handle('app:info', () => ({
     name: app.getName(),
     version: app.getVersion(),
-    platform: process.platform,
+    platform: process.env.IMEDIATEK_PLATFORM || process.platform,
     manifestUrl: config.MANIFEST_URL,
     releasesDir: path.join(app.getPath('userData'), 'releases'),
     repoUrl: config.REPO_URL,
