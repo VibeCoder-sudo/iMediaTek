@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('imediatek', {
   onBackendProgress: (callback) => subscribe('backend:progress', callback),
   runStep: (step, params) => ipcRenderer.invoke('backend:run', step, params),
   onBackendLog: (callback) => subscribe('backend:log', callback),
+  buildCheck: () => ipcRenderer.invoke('build:check'),
+  buildImage: (manifest, ipswPath) => ipcRenderer.invoke('build:run', { manifest, ipswPath }),
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
   openFolder: (dir) => ipcRenderer.invoke('shell:reveal', dir),
 });

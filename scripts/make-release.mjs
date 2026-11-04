@@ -15,9 +15,8 @@ const OWNER = 'VibeCoder-sudo';
 const REPO = 'iMediaTek';
 
 const ROLES = {
-  'rosemary_xnu_boot.img': 'Boot image for boot_a (LittleKernel header, DirectBoot, XNU kernel, ramdisk, DTB)',
-  'slot_mgr.py': 'One-shot slot switch helper, runs on the Arch rescue system',
-  'flash_boot_a.py': 'Safe flasher: checks the partition, streams the image, compares MD5',
+  'rosemary_xnu_skeleton.img': 'Boot image skeleton: DirectBoot + XNU, empty root-image slot (no Apple files)',
+  'imediatek-builder.tar.gz': 'Image builder: overlay of our files + scripts that build the root image from your IPSW',
 };
 
 function usage(message) {
@@ -77,6 +76,7 @@ const manifest = {
   protected: template.protected,
   profiles: template.profiles,
   ipsw: template.ipsw,
+  ...(files.includes('rosemary_xnu_skeleton.img') && files.includes('imediatek-builder.tar.gz') ? { build: template.build } : {}),
   assets,
 };
 

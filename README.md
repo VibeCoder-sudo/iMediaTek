@@ -17,7 +17,7 @@ LittleKernel (stock)  ->  DirectBoot  ->  XNU 8796  ->  init  ->  Apple launchd 
 
 Verified on hardware: LK to XNU with 1008 MB of RAM, the iOS 16.5 `System` volume mounted from flash as root, Apple's `launchd`, working touch, a Mali-G76 driver that draws through Metal (AIR to NIR to Panfrost). SpringBoard on the GPU is still being brought up. See [docs/FLASHING.md](docs/FLASHING.md) for what a healthy boot looks like.
 
-**This repository contains no Apple software.** The kernel image, ramdisk and iOS root filesystem are not distributed here. The iOS firmware (IPSW) is downloaded by the app straight from Apple's servers to your Mac; iMediaTek never hosts or redistributes it, and using it is subject to Apple's license terms.
+**This repository and its releases contain no Apple software.** A release holds a boot-image *skeleton* (DirectBoot + XNU, empty root-image slot) and an image builder; the finished image is assembled on your computer. The iOS firmware (IPSW) is downloaded by the app straight from Apple's servers to your Mac; iMediaTek never hosts or redistributes it, and using it is subject to Apple's license terms.
 
 ## Safety model
 
@@ -34,7 +34,7 @@ Verified on hardware: LK to XNU with 1008 MB of RAM, the iOS 16.5 `System` volum
 
 ## The installer
 
-Eleven steps, nothing skipped:
+Twelve steps, nothing skipped:
 
 1. **Prepare**: unlocked bootloader, Arch rescue on `boot_b`/`userdata`, battery, cable, how to leave a stuck boot.
 2. **Connect**: open the Arch console over USB (`/dev/cu.usbmodemnyam00011`).
@@ -42,11 +42,12 @@ Eleven steps, nothing skipped:
 4. **Download**: read `version.json` from the latest release and download every file.
 5. **Verify**: SHA-256 per file (MD5 for the boot image).
 6. **Get iOS**: download the official iOS 16.5 (20F66) IPSW straight from Apple's CDN (6.17 GB), with pause/resume, a free-space check and a SHA-256 check. You can also point the app at an IPSW you already have, or skip the step if the phone already has iOS.
-7. **Choose kernel**: Stable (CPU rendering) or Metal on Mali (experimental GPU path).
-8. **Flash `boot_a`**: stream the image to `/dev/sdc36` and compare MD5.
-9. **One-shot boot**: `slot_mgr.py a 1 0 && reboot -f`.
-10. **Watch**: what you should see and when; how to leave early.
-11. **Read the log**: mount pstore and read `console-ramoops-0`.
+7. **Build image**: your computer builds `rosemary_xnu_boot.img` from the release's open parts and your IPSW (needs Python 3 and 7-Zip 23+). The few Apple files the root image needs (dyld, launchd job definitions) are read out of your IPSW and never leave your computer; the release contains none.
+8. **Choose kernel**: Stable (CPU rendering) or Metal on Mali (experimental GPU path).
+9. **Flash `boot_a`**: stream the image to `/dev/sdc36` and compare MD5.
+10. **One-shot boot**: `slot_mgr.py a 1 0 && reboot -f`.
+11. **Watch**: what you should see and when; how to leave early.
+12. **Read the log**: mount pstore and read `console-ramoops-0`.
 
 | | |
 | --- | --- |

@@ -6,10 +6,10 @@
 
   const store = {
     get(key, fallback) {
-      key = `v2.${key}`;
+      key = `v3.${key}`;
       try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch (e) { return fallback; }
     },
-    set(key, value) { try { localStorage.setItem(`v2.${key}`, JSON.stringify(value)); } catch (e) { /* private mode */ } },
+    set(key, value) { try { localStorage.setItem(`v3.${key}`, JSON.stringify(value)); } catch (e) { /* private mode */ } },
   };
 
   const state = {
@@ -26,6 +26,7 @@
     manifestError: null,
     download: { running: false, progress: {}, results: null, dir: null },
     inspect: null,
+    build: { status: 'idle', error: null, prereq: null },
     ipsw: { status: 'idle', received: 0, total: 0, speed: 0, eta: null, path: null, error: null, free: null, dir: null, skipped: false },
     live: store.get('live', false),
     ports: [],
@@ -217,6 +218,7 @@
       case 'download': return downloadBody();
       case 'verify': return verifyBody();
       case 'ipsw': return ipswBody();
+      case 'build': return buildBody(s);
       case 'profile': return profileBody();
       case 'flash': return flashBody(s);
       case 'observe': return observeBody(s);
@@ -286,6 +288,25 @@
         <span class="badge ${r.ok ? 'green' : 'red'}">${r.simulated ? 'simulated' : r.ok ? 'match' : 'MISMATCH'}</span></div>`;
     }).join('')}</div>
     ${res.every((r) => r.ok) ? '' : '<div class="callout red" style="margin-top:12px">' + icon('bi-x-octagon-fill') + '<div><b>A file does not match its hash.</b> It was deleted. Download again; if it keeps failing, do not flash.</div></div>'}`;
+  }
+
+  function buildBody(s) {
+    const b = state.build;
+    const pr = b.prereq;
+    const row = (ok, title, sub) => `<div class="row"><span class="icon-tile ${ok ? 't-green' : 't-red'}">${icon(ok ? 'bi-check-lg' : 'bi-x-lg')}</span><div class="grow"><div class="title">${title}</div><div class="sub">${esc(sub)}</div></div></div>`;
+    const needs = pr ? `<div class="group" style="margin-top:6px">
+        ${row(!!pr.python, 'Python 3', pr.python ? pr.python.version : 'not found: install Python 3 and restart the app')}
+        ${row(!!pr.sevenZip, '7-Zip 23 or newer', pr.sevenZip ? pr.sevenZip.version : 'not found: it reads the APFS disk image inside the IPSW')}
+      </div>` : '';
+    const ipswOk = state.ipsw.status === 'ok' && state.ipsw.path;
+    const result = state.image && state.image.source === 'built'
+      ? `<div class="group" style="margin-top:12px"><div class="row"><span class="icon-tile t-green">${icon('bi-file-earmark-binary-fill')}</span><div class="grow"><div class="title">${esc(state.image.name)}</div><div class="sub">${bytes(state.image.size)} · built on this ${host().computer}</div><div class="hash">md5 ${esc(state.image.md5)}</div></div></div></div>` : '';
+    return `${needs}
+      <div class="callout blue" style="margin-top:12px">${icon('bi-shield-lock-fill')}<div>Nothing of Apple\u2019s is uploaded or kept in the release. dyld and the job definitions are read from your IPSW only while the image is built.${!state.live ? ' Dry run: the build is simulated.' : ''}</div></div>
+      ${!ipswOk && state.live ? '<p class="footnote">Finish the Get iOS step first: the build reads your IPSW.</p>' : ''}
+      ${b.error ? `<p class="footnote" style="color:var(--red)">${esc(b.error)}</p>` : ''}
+      ${result}
+      ${runButton({ run: 'build', runLabel: state.image && state.image.source === 'built' ? 'Build again' : 'Build the image', runIcon: 'bi-hammer' }, state.live && (!ipswOk || (pr && !pr.ok) || !(state.download.results)))}`;
   }
 
   function ipswBody() {
@@ -362,7 +383,7 @@
     const im = state.image;
     if (!im) return `<div class="row"><span class="icon-tile t-gray">${icon('bi-file-earmark-binary')}</span><div class="grow"><div class="title">No boot image chosen</div><div class="sub">${state.live ? 'Download a release or choose a file.' : 'Dry run uses rosemary_xnu_boot.img.'}</div></div><button class="btn secondary small" data-action="image-pick">${icon('bi-folder2-open')} Choose…</button></div>`;
     return `<div class="row"><span class="icon-tile t-blue">${icon('bi-file-earmark-binary-fill')}</span><div class="grow"><div class="title">${esc(im.name)}</div>
-      <div class="sub">${bytes(im.size)} · ${im.source === 'release' ? `release v${esc(state.manifest ? state.manifest.version : '')}, hashes match` : 'local file, no release hash to compare'}</div><div class="hash">md5 ${esc(im.md5)}</div></div>
+      <div class="sub">${bytes(im.size)} · ${im.source === 'release' ? `release v${esc(state.manifest ? state.manifest.version : '')}, hashes match` : im.source === 'built' ? `built on this ${host().computer} from your IPSW` : 'local file, no release hash to compare'}</div><div class="hash">md5 ${esc(im.md5)}</div></div>
       ${im.androidHeader ? '' : '<span class="badge red">Not an Android boot image</span>'}<button class="btn secondary small" data-action="image-pick">Change…</button></div>`;
   }
 
@@ -601,7 +622,24 @@
     persist(); render();
   }
 
+  async function runBuild() {
+    const s = D.steps[state.step];
+    state.busy = true; state.build.error = null; render();
+    try {
+      if (state.live) {
+        const info = await api.buildImage(state.manifest, state.ipsw.path);
+        state.image = { path: info.path, name: 'rosemary_xnu_boot.img', size: info.size, md5: info.md5, sha256: info.sha256, androidHeader: info.androidHeader, source: 'built' };
+        log(`Build image: ${info.size} bytes, md5 ${info.md5}`, 'ok');
+      } else {
+        for (const line of ['reading rootfs from the IPSW', 'extracting dyld and the job definitions', 'building the root image', 'assembling the boot image']) { log(`[dry run] build: ${line}`); await new Promise((r) => setTimeout(r, 450)); }
+      }
+      state.done.add(state.step); persist();
+    } catch (error) { state.build.error = error.message; log(`${s.title}: ${error.message}`, 'err'); toast('Build failed'); }
+    state.busy = false; render();
+  }
+
   async function runStep(stepName) {
+    if (stepName === 'build') return runBuild();
     const s = D.steps[state.step];
     if (state.live && ['flash', 'arm'].includes(stepName) && !state.image) { toast('Choose a boot image first'); return; }
     state.busy = true; state.flash = { sent: 0, total: 0 }; render();
@@ -655,6 +693,7 @@
     state.step = i;
     if (D.steps[i].autoDone) state.done.add(i); // nothing to run: looking at the choice is enough
     state.anim = 'step';
+    if (D.steps[i].id === 'build' && !state.build.prereq) api.buildCheck().then((r) => { state.build.prereq = r; render(); }).catch(() => {});
     persist(); render();
   }
 

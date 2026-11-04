@@ -49,26 +49,24 @@
   },
   "assets": [
     {
-      "name": "rosemary_xnu_boot.img",
-      "role": "Boot image for boot_a (LittleKernel header, DirectBoot, XNU kernel, ramdisk, DTB)",
-      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/rosemary_xnu_boot.img",
-      "size": 28409344,
+      "name": "rosemary_xnu_skeleton.img",
+      "role": "Boot image skeleton: DirectBoot + XNU, empty root-image slot (no Apple files)",
+      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/rosemary_xnu_skeleton.img",
+      "size": 21751808,
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "md5": "00000000000000000000000000000000"
     },
     {
-      "name": "slot_mgr.py",
-      "role": "One-shot slot switch helper, runs on the Arch rescue system",
-      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/slot_mgr.py",
-      "size": 4096,
-      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
-    },
-    {
-      "name": "flash_boot_a.py",
-      "role": "Safe flasher: checks the partition, streams the image, compares MD5",
-      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/flash_boot_a.py",
-      "size": 6144,
-      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      "name": "imediatek-builder.tar.gz",
+      "role": "Image builder: overlay of our files + scripts that build the root image from your IPSW",
+      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/imediatek-builder.tar.gz",
+      "size": 6253876,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
-  ]
+  ],
+  "build": {
+    "skeleton": "rosemary_xnu_skeleton.img",
+    "builder": "imediatek-builder.tar.gz",
+    "output": "rosemary_xnu_boot.img"
+  }
 }

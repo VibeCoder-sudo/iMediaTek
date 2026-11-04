@@ -48,6 +48,11 @@ function validateManifest(manifest) {
     }
   }
   if (manifest.ipsw !== undefined) ipswLib.validateIpsw(manifest.ipsw);
+  if (manifest.build !== undefined) {
+    for (const key of ['skeleton', 'builder']) {
+      if (!seen.has(manifest.build[key])) throw new Error(`build.${key} must name an asset of this release`);
+    }
+  }
   return manifest;
 }
 

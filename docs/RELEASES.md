@@ -55,7 +55,7 @@ A release is a GitHub release tagged `v<version>` that contains the payload file
 ## Publishing a release
 
 1. Put the payload in a directory, for example `release-files/`:
-   `rosemary_xnu_boot.img`, `slot_mgr.py`, `flash_boot_a.py`.
+   `rosemary_xnu_skeleton.img` and `imediatek-builder.tar.gz` (made by `release/make_parts.py` in the main source tree; no Apple files). The manifest then gets a `build` block naming both assets; the app builds `rosemary_xnu_boot.img` locally from them and the user's IPSW.
 2. Generate the manifest (sizes and hashes are computed for you):
    ```bash
    node scripts/make-release.mjs 0.1.0 release-files --channel stable --notes "First preview"

@@ -94,27 +94,32 @@ window.DATA = {
       text: 'iOS itself is not part of this project. The app downloads the official iOS 16.5 firmware (IPSW) straight from Apple to your {computer}. The iOS System volume, the dyld shared cache and the cryptexes come from it.',
     },
     {
+      id: 'build', icon: 'bi-hammer', title: 'Build image',
+      kicker: 'Step 7',
+      text: 'The release holds only our own parts. Your {computer} now builds the boot image from them and from the IPSW you just got: the few files of Apple\u2019s that it needs (dyld, launchd job definitions) are read out of your copy and stay on this {computer}.',
+    },
+    {
       id: 'profile', icon: 'bi-sliders', title: 'Choose kernel', autoDone: true,
-      kicker: 'Step 6',
+      kicker: 'Step 8',
       text: 'Pick which build to flash. Both use the same boot image layout; they differ in the boot arguments baked into DirectBoot.',
     },
     {
       id: 'flash', icon: 'bi-cpu', title: 'Flash boot_a',
-      kicker: 'Step 7',
+      kicker: 'Step 9',
       text: 'The boot image is streamed to /dev/sdc36 (boot_a) and read back; the MD5 of the partition must equal the MD5 of the file. boot_b and userdata are never opened for writing.',
       command: '{py} flash_boot_a.py',
       run: 'flash', runLabel: 'Flash boot_a', runIcon: 'bi-lightning-charge-fill', confirm: true,
     },
     {
       id: 'arm', icon: 'bi-power', title: 'One-shot boot',
-      kicker: 'Step 8',
+      kicker: 'Step 10',
       text: 'The slot manager is told to boot slot A exactly once. If anything hangs, the hardware watchdog resets the phone and it comes back in slot B (Arch) by itself.',
       command: '/usr/local/bin/slot_mgr.py a 1 0 && reboot -f',
       run: 'arm', runLabel: 'Boot iMediaTek once', runIcon: 'bi-arrow-repeat',
     },
     {
       id: 'observe', icon: 'bi-eye', title: 'Watch',
-      kicker: 'Step 9',
+      kicker: 'Step 11',
       text: 'Look at the phone. This is what a healthy run looks like. The system returns to Arch on its own after about five minutes.',
       timeline: [
         ['0:00', 'POCO logo, then colored bars from DirectBoot.'],
@@ -127,7 +132,7 @@ window.DATA = {
     },
     {
       id: 'collect', icon: 'bi-journal-text', title: 'Read the log',
-      kicker: 'Step 10',
+      kicker: 'Step 12',
       text: 'DirectBoot mirrors the kernel log into the ramoops console zone. Once the phone is back in Arch, mount pstore and read it.',
       command: "mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore; cat /sys/fs/pstore/console-ramoops-0",
       run: 'collect', runLabel: 'Fetch the log', runIcon: 'bi-box-arrow-in-down',

@@ -6,6 +6,7 @@ const config = require('./src/main/config');
 const releases = require('./src/main/releases');
 const backend = require('./src/main/backend');
 const ipsw = require('./src/main/ipsw');
+const builder = require('./src/main/builder');
 
 let win = null;
 let ipswAbort = null;
@@ -112,6 +113,20 @@ app.whenReady().then(() => {
     const picked = await dialog.showOpenDialog(win, { title: 'Choose the iOS IPSW', properties: ['openFile'], filters: [{ name: 'iOS firmware', extensions: ['ipsw'] }] });
     if (picked.canceled || picked.filePaths.length === 0) return { canceled: true };
     return ipsw.verifyFile(picked.filePaths[0], info, ipswProgress(event));
+  });
+
+  ipcMain.handle('build:check', () => builder.check());
+
+  // Builds the boot image locally from the user's IPSW and the release's open parts.
+  ipcMain.handle('build:run', async (event, { manifest, ipswPath }) => {
+    if (!manifest || typeof manifest.version !== 'string' || !/^[0-9A-Za-z.+-]+$/.test(manifest.version)) throw new Error('bad manifest');
+    releases.validateManifest(manifest);
+    const base = app.getPath('userData');
+    const result = await builder.build({
+      releaseDir: path.join(base, 'releases', manifest.version), manifest, ipswPath,
+      outDir: path.join(base, 'build', manifest.version),
+    }, (line) => send(event, 'backend:log', line));
+    return backend.inspectImage(result.path);
   });
 
   ipcMain.handle('shell:open', (event, url) => {
