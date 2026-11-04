@@ -157,7 +157,10 @@ h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin
 .segmented button.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); }
 @media (prefers-color-scheme: dark) { .segmented button.on { background: var(--surface-2); } }
 
-input[type="range"] { accent-color: var(--blue); width: min(200px, 30vw); }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: min(220px, 32vw); height: 28px; background: transparent; margin: 0; --p: 0%; }
+input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--blue) var(--p), var(--fill) var(--p)); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -9px; border-radius: 50%; background: #fff; border: 0.5px solid rgba(0, 0, 0, 0.12); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.06); transition: transform .12s ease; }
+input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.08); }
 .field { background: var(--fill); border: 0; border-radius: 8px; padding: 6px 10px; color: var(--text); font: inherit; -webkit-user-select: text; user-select: text; }
 
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 980px; font-size: 11px; font-weight: 600; background: var(--fill); color: var(--text-2); }
@@ -258,3 +261,8 @@ pre.json { background: var(--surface); border-radius: var(--radius); padding: 16
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.tick { display: block; flex: none; }
+.check svg, .sdot svg { width: 12px; height: 12px; }
+.badge svg { width: 11px; height: 11px; }
+.check, .sdot { line-height: 0; }

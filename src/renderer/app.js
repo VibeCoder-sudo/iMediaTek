@@ -36,6 +36,8 @@
   /* ---------- helpers ---------- */
   const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (name) => `<i class="bi ${name}"></i>`;
+  // An SVG tick centres exactly; a glyph from the icon font sits wherever its metrics put it.
+  const CHECK = '<svg class="tick" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.4 8.1 6.4 11.1 12.6 4.9" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
   const $ = (selector) => document.querySelector(selector);
 
@@ -88,6 +90,7 @@
     return parts.join(' ');
   }
 
+  const rangePct = (v) => Math.round(((v - 60) / (900 - 60)) * 100);
   const stepUnlocked = (i) => i === 0 || state.done.has(i - 1) || state.done.has(i);
 
   /* ---------- views ---------- */
@@ -173,7 +176,7 @@
       <div class="callout" style="margin-bottom:22px">${icon('bi-exclamation-triangle-fill')}<div><b>Dry run.</b> This build simulates every device action. Nothing is written to the phone.</div></div>
       <div class="stepper" role="list">
         ${D.steps.map((st, i) => `
-          <button class="sdot ${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''}" role="listitem" data-action="step" data-i="${i}" title="${esc(st.title)}" ${stepUnlocked(i) ? '' : 'disabled'}>${state.done.has(i) ? icon('bi-check-lg') : i + 1}</button>
+          <button class="sdot ${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''}" role="listitem" data-action="step" data-i="${i}" title="${esc(st.title)}" ${stepUnlocked(i) ? '' : 'disabled'}>${state.done.has(i) ? CHECK : i + 1}</button>
           ${i < D.steps.length - 1 ? `<span class="sline ${state.done.has(i) ? 'done' : ''}"></span>` : ''}`).join('')}
       </div>
       <div class="step-card">
@@ -211,13 +214,13 @@
   const runButton = (s, disabled) => `
     <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
       <button class="btn" data-action="run" data-step="${s.run}" ${state.busy || disabled ? 'disabled' : ''}>${icon(s.runIcon)} ${s.runLabel}</button>
-      ${state.done.has(state.step) ? `<span class="badge green">${icon('bi-check-lg')} Done</span>` : ''}
+      ${state.done.has(state.step) ? `<span class="badge green">${CHECK} Done</span>` : ''}
       ${state.busy ? '<span class="badge">Working…</span>' : ''}
     </div>`;
 
   function prepareBody(s) {
     return `<ul class="checklist">${s.checklist.map((text, i) => `
-      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-pop="check-${i}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${icon('bi-check-lg')}</button><span>${esc(text)}</span></li>`).join('')}</ul>`;
+      <li><button class="check ${state.checks[i] ? 'on' : ''}" data-pop="check-${i}" data-action="check" data-i="${i}" aria-pressed="${!!state.checks[i]}">${CHECK}</button><span>${esc(text)}</span></li>`).join('')}</ul>`;
   }
 
   function inspectResult() {
@@ -249,7 +252,7 @@
       <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
         <button class="btn" data-action="download" ${dl.running ? 'disabled' : ''}>${icon('bi-cloud-arrow-down-fill')} ${dl.results ? 'Download again' : 'Download'}</button>
         ${dl.results && dl.dir ? `<button class="btn secondary" data-action="folder">${icon('bi-folder2-open')} Show in Finder</button>` : ''}
-        ${state.done.has(state.step) ? `<span class="badge green">${icon('bi-check-lg')} Done</span>` : ''}
+        ${state.done.has(state.step) ? `<span class="badge green">${CHECK} Done</span>` : ''}
       </div>
       ${state.source === 'demo' ? `<p class="footnote">${state.manifestError ? `No release found (${esc(state.manifestError)}). ` : ''}Demo mode: downloads are simulated.</p>` : ''}`;
   }
@@ -275,7 +278,7 @@
       <div class="row" data-action="profile" data-id="${p.id}" style="cursor:default">
         <span class="icon-tile ${p.tile}">${icon(p.icon)}</span>
         <div class="grow"><div class="title">${p.title}</div><div class="sub">${p.subtitle}</div></div>
-        ${state.profile === p.id ? `<span class="badge blue">${icon('bi-check-lg')} Selected</span>` : ''}
+        ${state.profile === p.id ? `<span class="badge blue">${CHECK} Selected</span>` : ''}
       </div>`).join('')}</div>
       <div class="section-label">Boot arguments</div>${cmdLine(cmdline())}
       <p class="footnote">Fine-tune them in Configuration. The same boot image is flashed either way.</p>`;
@@ -289,7 +292,7 @@
         <div class="row"><span class="icon-tile t-red">${icon('bi-lock-fill')}</span><div class="grow"><div class="title">Never touched</div><div class="sub mono">/dev/sdc56 (boot_b) · /dev/sdc61 (userdata)</div></div><span class="badge red">protected</span></div>
       </div>
       ${cmdBox(s.command)}
-      <ul class="checklist"><li><button class="check ${state.confirmed ? 'on' : ''}" data-pop="confirm" data-action="confirm" aria-pressed="${state.confirmed}">${icon('bi-check-lg')}</button><span>I checked that the destination is boot_a and I have the Arch rescue system on boot_b.</span></li></ul>
+      <ul class="checklist"><li><button class="check ${state.confirmed ? 'on' : ''}" data-pop="confirm" data-action="confirm" aria-pressed="${state.confirmed}">${CHECK}</button><span>I checked that the destination is boot_a and I have the Arch rescue system on boot_b.</span></li></ul>
       ${runButton(s, !state.confirmed || !state.download.results)}`;
   }
 
@@ -298,7 +301,7 @@
       <div class="callout blue" style="margin-top:12px">${icon('bi-hand-index-thumb-fill')}<div>${esc(s.extra)}</div></div>
       <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
         <button class="btn" data-action="mark" ${state.done.has(state.step) ? 'disabled' : ''}>${icon('bi-check2')} The phone is back in Arch</button>
-        ${state.done.has(state.step) ? `<span class="badge green">${icon('bi-check-lg')} Done</span>` : ''}
+        ${state.done.has(state.step) ? `<span class="badge green">${CHECK} Done</span>` : ''}
       </div>`;
   }
 
@@ -323,7 +326,7 @@
         <div class="row"><div class="grow"><div class="title">Preset</div><div class="sub">Switches the GPU arguments on or off</div></div>
           <div class="segmented">${D.presets.map((p) => `<button class="${state.profile === p.id ? 'on' : ''}" data-action="preset" data-id="${p.id}">${p.title}</button>`).join('')}</div></div>
         <div class="row"><div class="grow"><div class="title">Return to Arch after</div><div class="sub">DirectBoot hands the phone back after this many seconds (loader_return_after)</div></div>
-          <input type="range" min="60" max="900" step="30" value="${state.returnAfter}" data-action="range"><span class="value" style="width:56px">${state.returnAfter} s</span></div>
+          <input type="range" min="60" max="900" step="30" value="${state.returnAfter}" data-action="range" style="--p:${rangePct(state.returnAfter)}%"><span class="value" style="width:56px">${state.returnAfter} s</span></div>
         <div class="row"><div class="grow"><div class="title">Boot method</div><div class="sub">One-shot: slot_mgr.py a 1 0, then reboot</div></div><span class="badge green">Watchdog fallback to slot B</span></div>
       </div>
 
@@ -506,7 +509,7 @@
       const line = document.querySelector('.cmd code');
       if (line) { line.textContent = cmdline(); line.nextElementSibling.dataset.text = cmdline(); }
     },
-    range: (el) => { state.returnAfter = Number(el.value); persist(); const v = el.nextElementSibling; if (v) v.textContent = `${state.returnAfter} s`; },
+    range: (el) => { state.returnAfter = Number(el.value); persist(); el.style.setProperty('--p', `${rangePct(state.returnAfter)}%`); const v = el.nextElementSibling; if (v) v.textContent = `${state.returnAfter} s`; },
     raw: () => { state.showRaw = !state.showRaw; render(); },
     open: (el) => { if (el.dataset.url) api.openExternal(el.dataset.url); },
     copy: (el) => { navigator.clipboard.writeText(el.dataset.text).then(() => toast('Copied'), () => toast('Copy failed')); },
