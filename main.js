@@ -4,7 +4,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const config = require('./src/main/config');
 const releases = require('./src/main/releases');
-const backend = require('./src/main/backend-stub');
+const backend = require('./src/main/backend');
 const ipsw = require('./src/main/ipsw');
 
 let win = null;
@@ -60,11 +60,36 @@ app.whenReady().then(() => {
     })
   );
 
+  const send = (event, channel, payload) => { if (!event.sender.isDestroyed()) event.sender.send(channel, payload); };
+
   ipcMain.handle('backend:run', (event, step, params) =>
-    backend.run(step, params, (line) => {
-      if (!event.sender.isDestroyed()) event.sender.send('backend:log', line);
-    })
-  );
+    backend.run(step, params, (line) => send(event, 'backend:log', line), {
+      logDir: path.join(app.getPath('userData'), 'logs'),
+      progress: (p) => send(event, 'backend:progress', p),
+      // The last word before the phone is written belongs to a native dialog the page cannot click.
+      confirmFlash: async (d) => {
+        const answer = await dialog.showMessageBox(win, {
+          type: 'warning',
+          buttons: ['Cancel', 'Write boot_a'],
+          defaultId: 0,
+          cancelId: 0,
+          title: 'Write to the phone',
+          message: `Write ${d.file} to boot_a?`,
+          detail: `${(d.size / 1048576).toFixed(1)} MB (MD5 ${d.md5}) will be written to ${d.target} (boot_a).\n\nboot_b and userdata are never touched. The phone keeps booting Arch until you arm the one-shot boot.`,
+        });
+        return answer.response === 1;
+      },
+    }));
+
+  ipcMain.handle('device:ports', () => backend.listPorts());
+
+  ipcMain.handle('image:pick', async () => {
+    const picked = await dialog.showOpenDialog(win, { title: 'Choose the boot image', properties: ['openFile'], filters: [{ name: 'Boot image', extensions: ['img'] }] });
+    if (picked.canceled || picked.filePaths.length === 0) return { canceled: true };
+    return backend.inspectImage(picked.filePaths[0]);
+  });
+
+  ipcMain.handle('image:inspect', (event, file) => (typeof file === 'string' ? backend.inspectImage(file) : null));
 
   const ipswDir = () => path.join(app.getPath('userData'), 'ipsw');
   const ipswProgress = (event) => (p) => { if (!event.sender.isDestroyed()) event.sender.send('ipsw:progress', p); };
@@ -105,6 +130,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on('before-quit', () => { backend.disconnect(); });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

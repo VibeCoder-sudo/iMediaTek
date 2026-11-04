@@ -56,6 +56,6 @@ This is the manual procedure the installer automates. It assumes the Arch Linux 
 | Hash mismatch | Do not flash. Download again. |
 | `sdc36` is not `boot_a` | Stop. Do not write anything. |
 
-## What the installer will add
+## What the installer does for you
 
-The device backend (serial console to the Arch system, the partition check, the streaming write and the MD5 comparison) replaces `src/main/backend-stub.js` and keeps its `run(step, params, log)` contract, so the interface does not change.
+In Live mode the app runs these same commands over the serial console (see `src/main/device/guard.js` for the exact templates): the partition checks, `head -c SIZE > /dev/sdc36` fed with the raw image, the MD5 read-back, and `slot_mgr.py a 1 0 && reboot -f`. Run it with Dry run first, and do the first Live run only up to *Check slots*, which only reads.

@@ -27,6 +27,12 @@
     download: { running: false, progress: {}, results: null, dir: null },
     inspect: null,
     ipsw: { status: 'idle', received: 0, total: 0, speed: 0, eta: null, path: null, error: null, free: null, dir: null, skipped: false },
+    live: store.get('live', false),
+    ports: [],
+    port: store.get('port', null),
+    image: null,
+    flash: { sent: 0, total: 0 },
+    collect: null,
     busy: false,
     anim: null,
     pop: null,
@@ -71,6 +77,8 @@
     store.set('profile', state.profile);
     store.set('args', state.args);
     store.set('returnAfter', state.returnAfter);
+    store.set('live', state.live);
+    store.set('port', state.port);
   }
 
   function ensureArgs() {
@@ -119,7 +127,7 @@
     const live = state.source === 'remote';
     $('#sidebarFoot').innerHTML = `
       <div class="pill-live"><span class="dot ${live ? 'ok' : ''}"></span>${live ? 'Release feed online' : 'Demo manifest'}</div>
-      <div style="margin-top:4px">v${esc(state.info ? state.info.version : '0.1.0')} · front-end preview</div>`;
+      <div style="margin-top:4px">v${esc(state.info ? state.info.version : '0.1.0')} · ${state.live ? 'live mode' : 'dry run'}</div>`;
   }
 
   function viewOverview() {
@@ -174,7 +182,10 @@
     const s = D.steps[state.step];
     const last = state.step === D.steps.length - 1;
     return `
-      <div class="page-head"><h1>Install</h1><span class="badge orange">${icon('bi-exclamation-triangle-fill')} Dry run · nothing is written</span></div>
+      <div class="page-head"><h1>Install</h1>
+        <div class="segmented" role="group" aria-label="Mode"><button class="${state.live ? '' : 'on'}" data-action="mode" data-live="0">Dry run</button><button class="${state.live ? 'on' : ''}" data-action="mode" data-live="1">Live</button></div>
+        ${state.live ? `<span class="badge red">${icon('bi-lightning-charge-fill')} Live · writes boot_a only</span>` : `<span class="badge orange">${icon('bi-exclamation-triangle-fill')} Dry run · nothing is written</span>`}
+      </div>
       <div class="stepper" role="list">
         ${D.steps.map((st, i) => `
           <button class="sdot ${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''}" role="listitem" data-action="step" data-i="${i}" title="${esc(st.title)}" ${stepUnlocked(i) ? '' : 'disabled'}>${state.done.has(i) ? CHECK : i + 1}</button>
@@ -210,6 +221,8 @@
       case 'flash': return flashBody(s);
       case 'observe': return observeBody(s);
       case 'inspect': return `${cmdBox(s.command)}${inspectResult()}${runButton(s)}`;
+      case 'connect': return connectBody(s);
+      case 'collect': return collectBody(s);
       default: return `${s.command ? cmdBox(s.command) : ''}${runButton(s)}`;
     }
   }
@@ -325,16 +338,45 @@
       <p class="footnote">Fine-tune them in Configuration. The same boot image is flashed either way.</p>`;
   }
 
+  function connectBody(s) {
+    const portPicker = state.live ? `
+      <div class="group" style="margin-top:10px">
+        <div class="row"><span class="icon-tile t-teal">${icon('bi-usb-symbol')}</span>
+          <div class="grow"><div class="title">Console port</div><div class="sub">The phone's Arch console (USB serial). Plug the phone in, then refresh.</div></div>
+          <select class="field" data-action="port">${state.ports.length ? state.ports.map((p) => `<option value="${esc(p.path)}" ${p.path === state.port ? 'selected' : ''}>${esc(p.path)}${p.likely ? '  (likely the phone)' : ''}</option>`).join('') : '<option value="">No serial ports found</option>'}</select>
+          <button class="btn secondary small" data-action="ports">${icon('bi-arrow-clockwise')} Refresh</button></div>
+      </div>` : '';
+    return `${s.command ? cmdBox(s.command) : ''}${portPicker}${runButton(s, state.live && !state.port)}`;
+  }
+
+  function collectBody(s) {
+    const c = state.collect;
+    return `${cmdBox(s.command)}
+      ${c ? `<div class="group" style="margin-top:12px"><div class="row"><span class="icon-tile t-green">${icon('bi-journal-text')}</span><div class="grow"><div class="title">${c.bytes} bytes saved</div><div class="sub mono" style="word-break:break-all">${esc(c.path)}</div></div><button class="btn secondary small" data-action="log-show">${icon('bi-folder2-open')} Show</button></div></div>
+        <pre class="json" style="margin-top:10px;max-height:160px">${esc(c.tail)}</pre>` : ''}
+      ${runButton(s, state.live && !state.port)}
+      ${state.live ? '<p class="footnote">Waits up to about five minutes for the phone to return to Arch, then reads the log.</p>' : ''}`;
+  }
+
+  function imageRow() {
+    const im = state.image;
+    if (!im) return `<div class="row"><span class="icon-tile t-gray">${icon('bi-file-earmark-binary')}</span><div class="grow"><div class="title">No boot image chosen</div><div class="sub">${state.live ? 'Download a release or choose a file.' : 'Dry run uses rosemary_xnu_boot.img.'}</div></div><button class="btn secondary small" data-action="image-pick">${icon('bi-folder2-open')} Choose…</button></div>`;
+    return `<div class="row"><span class="icon-tile t-blue">${icon('bi-file-earmark-binary-fill')}</span><div class="grow"><div class="title">${esc(im.name)}</div>
+      <div class="sub">${bytes(im.size)} · ${im.source === 'release' ? `release v${esc(state.manifest ? state.manifest.version : '')}, hashes match` : 'local file, no release hash to compare'}</div><div class="hash">md5 ${esc(im.md5)}</div></div>
+      ${im.androidHeader ? '' : '<span class="badge red">Not an Android boot image</span>'}<button class="btn secondary small" data-action="image-pick">Change…</button></div>`;
+  }
+
   function flashBody(s) {
     return `
       <div class="group" style="margin-top:6px">
-        <div class="row"><span class="icon-tile t-blue">${icon('bi-file-earmark-binary-fill')}</span><div class="grow"><div class="title">rosemary_xnu_boot.img</div><div class="sub">${state.manifest ? `v${esc(state.manifest.version)}` : 'no release loaded'} · profile ${esc(state.profile)}</div></div></div>
+        ${imageRow()}
         <div class="row"><span class="icon-tile t-blue">${icon('bi-play-circle-fill')}</span><div class="grow"><div class="title">Destination</div><div class="sub mono">/dev/sdc36 (boot_a)</div></div><span class="badge blue">write</span></div>
         <div class="row"><span class="icon-tile t-red">${icon('bi-lock-fill')}</span><div class="grow"><div class="title">Never touched</div><div class="sub mono">/dev/sdc56 (boot_b) · /dev/sdc61 (userdata)</div></div><span class="badge red">protected</span></div>
       </div>
       ${cmdBox(s.command)}
       <ul class="checklist"><li><button class="check ${state.confirmed ? 'on' : ''}" data-pop="confirm" data-action="confirm" aria-pressed="${state.confirmed}">${CHECK}</button><span>I checked that the destination is boot_a and I have the Arch rescue system on boot_b.</span></li></ul>
-      ${runButton(s, !state.confirmed || !state.download.results)}`;
+      ${state.flash.total && state.busy ? `<div class="progress" style="margin-top:12px"><i id="flashBar" style="width:${Math.round((state.flash.sent / state.flash.total) * 100)}%"></i></div><p class="footnote" id="flashText">Writing ${Math.round(state.flash.sent / 1048576)} of ${Math.round(state.flash.total / 1048576)} MB</p>` : ''}
+      ${runButton(s, !state.confirmed || (state.live ? !state.image : !state.download.results))}`;
   }
 
   function observeBody(s) {
@@ -499,7 +541,7 @@
       const out = await api.downloadRelease(state.manifest);
       dl.results = out.results; dl.dir = out.dir;
       out.results.forEach((r) => log(`${r.name}: ${r.ok ? (r.cached ? 'cached, hash ok' : 'hash ok') : 'HASH MISMATCH'}${r.simulated ? ' (simulated)' : ''}`, r.ok ? 'ok' : 'err'));
-      if (out.ok) { state.done.add(3); state.done.add(4); toast('Download verified'); }
+      if (out.ok) { state.done.add(3); state.done.add(4); toast('Download verified'); await useReleaseImage(); }
       else toast('A file failed verification');
     } catch (error) {
       log(`Download failed: ${error.message}`, 'err');
@@ -561,16 +603,52 @@
 
   async function runStep(stepName) {
     const s = D.steps[state.step];
-    state.busy = true; render();
+    if (state.live && ['flash', 'arm'].includes(stepName) && !state.image) { toast('Choose a boot image first'); return; }
+    state.busy = true; state.flash = { sent: 0, total: 0 }; render();
     try {
-      const result = await api.runStep(stepName, { console: fill('{console}'), image: 'rosemary_xnu_boot.img', profile: state.profile, cmdline: cmdline() });
+      const expected = state.image && state.image.source === 'release' ? state.image.expected : null;
+      const result = await api.runStep(stepName, {
+        live: state.live, port: state.port, console: fill('{console}'),
+        imagePath: state.image ? state.image.path : null, expected,
+        image: 'rosemary_xnu_boot.img', profile: state.profile, cmdline: cmdline(), waitSeconds: 420,
+      });
       if (stepName === 'inspect') state.inspect = result;
-      log(`${s.title}: done (dry run)`, 'ok');
-      state.done.add(state.step); persist();
+      if (stepName === 'collect' && state.live) state.collect = result;
+      if (result && result.canceled) { log(`${s.title}: cancelled, nothing was written`, 'warn'); toast('Cancelled'); }
+      else {
+        log(`${s.title}: done${state.live ? '' : ' (dry run)'}`, 'ok');
+        state.done.add(state.step); persist();
+      }
     } catch (error) {
       log(`${s.title}: ${error.message}`, 'err'); toast('Step failed');
     }
     state.busy = false; render();
+  }
+
+  async function refreshPorts() {
+    try {
+      state.ports = await api.listPorts();
+      if (!state.port || !state.ports.some((p) => p.path === state.port)) state.port = (state.ports.find((p) => p.likely) || state.ports[0] || {}).path || null;
+    } catch (error) { log(`Could not list serial ports: ${error.message}`, 'err'); }
+    render();
+  }
+
+  async function pickImage() {
+    const picked = await api.pickImage();
+    if (!picked || picked.canceled) return;
+    state.image = { path: picked.path, name: picked.path.split(/[\\/]/).pop(), size: picked.size, md5: picked.md5, sha256: picked.sha256, androidHeader: picked.androidHeader, source: 'local' };
+    log(`Boot image: ${state.image.name}, ${picked.size} bytes, md5 ${picked.md5}${picked.androidHeader ? '' : ' (NOT an Android boot image)'}`, picked.androidHeader ? '' : 'warn');
+    render();
+  }
+
+  // The image that came with the release (already hash-checked by the downloader).
+  async function useReleaseImage() {
+    const asset = state.manifest && state.manifest.assets.find((a) => a.name === 'rosemary_xnu_boot.img');
+    const result = state.download.results && state.download.results.find((r) => r.name === 'rosemary_xnu_boot.img' && r.path);
+    if (!asset || !result) return;
+    const info = await api.inspectImage(result.path);
+    state.image = { path: info.path, name: asset.name, size: info.size, md5: info.md5, sha256: info.sha256, androidHeader: info.androidHeader, source: 'release', expected: { sha256: asset.sha256, md5: asset.md5 } };
+    render();
   }
 
   function enterStep(i) {
@@ -597,6 +675,19 @@
     confirm: () => { state.confirmed = !state.confirmed; if (state.confirmed) state.pop = 'confirm'; render(); },
     mark: () => { state.done.add(state.step); persist(); render(); },
     refresh: () => loadManifest(false),
+    mode: (el) => {
+      const live = el.dataset.live === '1';
+      if (live === state.live) return;
+      state.live = live;
+      // What a dry run "did" proves nothing about a real phone: device steps start over.
+      D.steps.forEach((st, i) => { if (st.run || st.id === 'observe') state.done.delete(i); });
+      state.inspect = null; state.collect = null; state.confirmed = false;
+      if (live) refreshPorts();
+      persist(); render();
+    },
+    ports: () => refreshPorts(),
+    'image-pick': () => pickImage(),
+    'log-show': () => { if (state.collect) api.openFolder(state.collect.path); },
     'ipsw-download': () => ipswDownload(),
     'ipsw-pause': () => { api.ipswPause(); },
     'ipsw-pick': () => ipswPick(),
@@ -627,6 +718,7 @@
   });
   document.addEventListener('change', (event) => {
     const el = event.target;
+    if (el.tagName === 'SELECT' && el.dataset.action === 'port') { state.port = el.value || null; persist(); return; }
     if (el.tagName === 'INPUT' && el.dataset.action === 'arg') actions.arg(el);
   });
   document.addEventListener('input', (event) => {
@@ -636,6 +728,14 @@
 
   /* ---------- boot ---------- */
   api.onBackendLog((line) => log(line));
+  api.onBackendProgress((p) => {
+    if (p.phase !== 'flash') return;
+    state.flash = { sent: p.sent, total: p.total };
+    const bar = $('#flashBar'); const text = $('#flashText');
+    if (bar) bar.style.width = `${Math.round((p.sent / p.total) * 100)}%`;
+    if (text) text.textContent = `Writing ${Math.round(p.sent / 1048576)} of ${Math.round(p.total / 1048576)} MB`;
+    else if (state.busy) render();
+  });
   api.onDownloadProgress((p) => {
     state.download.progress[p.name] = p;
     // Update bars in place so a fast download does not re-render the page hundreds of times.
@@ -670,6 +770,7 @@
     if (info.platform === 'darwin') document.body.classList.add('vibrant');
     render();
     loadManifest(true);
+    if (state.live) refreshPorts();
   });
   render();
 })();

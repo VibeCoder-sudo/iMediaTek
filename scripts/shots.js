@@ -27,6 +27,8 @@ module.exports = function shots(getWindow, dir) {
     await shot('02-install-prepare');
     for (let i = 0; i < 6; i += 1) await click(`[data-action=check][data-i="${i}"]`);
     await click('[data-action=next]');
+    await click('[data-action=mode][data-live="1"]'); await sleep(700); await shot('03a-install-live-connect');
+    await click('[data-action=mode][data-live="0"]'); await sleep(300);
     await click('[data-action=run]'); await sleep(1800); await shot('03-install-connect');
     await click('[data-action=next]');
     await click('[data-action=run]'); await sleep(2000); await shot('04-install-slots');

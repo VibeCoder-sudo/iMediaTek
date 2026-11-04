@@ -3,7 +3,7 @@
 **iOS 16.5 (XNU `xnu-8796.121.2`) on the POCO M5s, a MediaTek Helio G95 phone.**
 This repository holds the installer: a small Electron app that walks you through flashing the proof of concept to the test slot and booting it once, without touching the Linux rescue system.
 
-> **Status: front-end preview (v0.1.0).** The interface, the release feed, downloading and hash checking are real. Every device action (connect, flash, one-shot boot, read log) is a **dry run** that prints what it would do and writes nothing. The device backend comes next.
+> **Status: v0.2.0, early.** The interface, the release feed, downloading and hash checking work, and there is a **live device backend** (serial console to the phone's Arch system, partition checks, streamed write to `boot_a`, MD5 read-back, one-shot boot, log collection). It is tested against an emulated console, **not yet against a real phone**: do the first live run with Dry run off only up to *Check slots*, which is read only. The *Dry run* mode (default) still simulates every device action.
 
 ![Overview](docs/screenshots/overview.png)
 
@@ -55,6 +55,18 @@ Eleven steps, nothing skipped:
 
 The **Configuration** page shows the slot map and every boot argument (required ones are locked), with presets and the resulting command line.
 
+## Live mode
+
+The *Dry run / Live* switch in the Install header decides whether device steps are simulated or real. In Live mode:
+
+- **Connect** opens the chosen serial port (only ports the system lists are accepted) and checks that the other end is the Arch rescue system and which slot it runs from.
+- **Check slots** reads `PARTNAME` of `sdc36`, `sdc56`, `sdc61` and `sdc60` and refuses to go on unless they are `boot_a`, `boot_b`, `userdata` and `super`; it also checks that the image fits into `boot_a`.
+- **Flash** re-checks everything, verifies the file (Android boot image header, size limits, SHA-256 / MD5 from `version.json` for a release image), asks for confirmation in a native dialog, streams the bytes into `/dev/sdc36` (up to three attempts) and reads the partition back: the MD5 must match.
+- **One-shot boot** reads `boot_a` back once more and only then runs `slot_mgr.py a 1 0 && reboot -f`. It never arms an image that was not verified.
+- **Read the log** waits for the phone to return as a serial port, mounts pstore and saves `console-ramoops-0` to the app's data folder.
+
+The commands that touch a block device are built from fixed templates in `src/main/device/guard.js`; nothing else composes one. A test checks that none mentions `boot_b`, `userdata` or `super`.
+
 ## Releases and updates
 
 Each GitHub release carries a `version.json` next to the files the installer needs. The app downloads
@@ -82,7 +94,7 @@ Build a manifest for a release directory:
 node scripts/make-release.mjs 0.1.0 ./release-files --notes "First preview"
 ```
 
-`node scripts/test-ipsw.js` tests the firmware downloader against a local server (pause, resume, hash mismatch, a server that ignores Range).
+`node scripts/test-device.js` runs the live backend against an emulated Arch console (happy path, log collection, and the refusals: wrong partition name, non-Android file, hash mismatch, cancel, image too large, corrupted write). `node scripts/test-ipsw.js` tests the firmware downloader against a local server (pause, resume, hash mismatch, a server that ignores Range).
 
 `IMEDIATEK_SHOTS=<dir> npx electron .` renders every screen to PNG files and quits.
 
@@ -90,7 +102,7 @@ node scripts/make-release.mjs 0.1.0 ./release-files --notes "First preview"
 
 The installer is Electron, so the interface runs on macOS, Windows and Linux. Wording adapts to the host: "this Mac / this PC", Finder / File Explorer, `python3` / `python`, and the console port (`/dev/cu.usbmodem…` on macOS, `/dev/ttyACM0` on Linux, a COM port on Windows; the phone's Arch console is a USB CDC serial device, which Windows 10 and newer should handle with the built-in driver). On Windows and Linux the native title bar is used instead of the macOS translucent one.
 
-Only the macOS build has been run on real hardware so far. The command-line helpers used today (`phone_sh.py`, `flash_boot_a.py`) open `/dev/...` paths, so they are Unix only; the device backend that replaces the dry-run stub will talk to the phone through a cross-platform serial library instead, and Windows will be tested before it is called supported.
+Only the macOS interface has been run on a real computer so far, and the live backend has only met an emulated console. The original command-line helpers (`phone_sh.py`, `flash_boot_a.py`) open `/dev/...` paths and are Unix only; the app's backend uses the cross-platform `serialport` library instead. Windows will be tested before it is called supported.
 
 ## Design notes
 
@@ -105,7 +117,10 @@ Only the macOS build has been run on real hardware so far. The command-line help
 main.js, preload.js          Electron main process and the context-isolated bridge
 src/main/releases.js         version.json fetch + validation, downloads, SHA-256 / MD5
 src/main/ipsw.js             Apple IPSW download: resume, pause, SHA-256, host allowlist
-src/main/backend-stub.js     dry-run device backend (replaced by the real one later)
+src/main/backend.js          routes a step to the dry-run stub or the live backend
+src/main/backend-stub.js     dry-run device backend
+src/main/device/             live backend: serial console, safety guard, steps
+scripts/fake-arch.py         emulated Arch console used by the tests
 src/renderer/                the interface (plain HTML, CSS and JavaScript, no build step)
 data/demo-manifest.json      manifest used when no release exists
 scripts/make-release.mjs     builds version.json for a release

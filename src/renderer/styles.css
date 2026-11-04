@@ -316,3 +316,6 @@ pre.json { max-height: calc(100vh - 260px); }
 body:not(.vibrant) .titlebar-drag { display: none; }
 body:not(.vibrant) .sidebar-drag { height: 20px; }
 body:not(.vibrant) .view { padding-top: 28px; }
+
+select.field { max-width: 260px; text-overflow: ellipsis; }
+.page-head .segmented { margin-right: 2px; }
