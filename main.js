@@ -1,12 +1,14 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const config = require('./src/main/config');
 const releases = require('./src/main/releases');
 const backend = require('./src/main/backend-stub');
+const ipsw = require('./src/main/ipsw');
 
 let win = null;
+let ipswAbort = null;
 
 function createWindow() {
   const mac = process.platform === 'darwin';
@@ -64,13 +66,36 @@ app.whenReady().then(() => {
     })
   );
 
+  const ipswDir = () => path.join(app.getPath('userData'), 'ipsw');
+  const ipswProgress = (event) => (p) => { if (!event.sender.isDestroyed()) event.sender.send('ipsw:progress', p); };
+
+  ipcMain.handle('ipsw:status', (event, info) => ({ ...ipsw.status(info, ipswDir()), dir: ipswDir() }));
+
+  ipcMain.handle('ipsw:download', async (event, info) => {
+    if (ipswAbort) throw new Error('a download is already running');
+    ipswAbort = new AbortController();
+    try {
+      return await ipsw.download(info, ipswDir(), ipswProgress(event), ipswAbort.signal);
+    } finally {
+      ipswAbort = null;
+    }
+  });
+
+  ipcMain.handle('ipsw:pause', () => { if (ipswAbort) ipswAbort.abort(); });
+
+  ipcMain.handle('ipsw:pick', async (event, info) => {
+    const picked = await dialog.showOpenDialog(win, { title: 'Choose the iOS IPSW', properties: ['openFile'], filters: [{ name: 'iOS firmware', extensions: ['ipsw'] }] });
+    if (picked.canceled || picked.filePaths.length === 0) return { canceled: true };
+    return ipsw.verifyFile(picked.filePaths[0], info, ipswProgress(event));
+  });
+
   ipcMain.handle('shell:open', (event, url) => {
     if (typeof url === 'string' && /^https:\/\//.test(url)) return shell.openExternal(url);
     return undefined;
   });
 
   ipcMain.handle('shell:reveal', (event, dir) => {
-    if (typeof dir === 'string') return shell.openPath(dir);
+    if (typeof dir === 'string') return shell.showItemInFolder(dir);
     return undefined;
   });
 

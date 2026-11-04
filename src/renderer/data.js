@@ -12,10 +12,10 @@ window.DATA = {
   },
 
   slots: [
-    { id: 'boot_a', dev: '/dev/sdc36', kind: 'target', icon: 'bi-play-circle-fill', tile: 't-blue', role: 'Test slot', note: 'The only partition this app ever writes. Every iMediaTek boot is a one-shot boot of this slot.' },
+    { id: 'boot_a', dev: '/dev/sdc36', kind: 'target', icon: 'bi-play-circle-fill', tile: 't-blue', role: 'Test slot', note: 'The only partition a test boot writes. Every iMediaTek boot is a one-shot boot of this slot.' },
     { id: 'boot_b', dev: '/dev/sdc56', kind: 'locked', icon: 'bi-lock-fill', tile: 't-red', role: 'Arch Linux rescue kernel', note: 'Never written. The phone falls back here when a test boot hangs.' },
     { id: 'userdata', dev: '/dev/sdc61', kind: 'locked', icon: 'bi-lock-fill', tile: 't-red', role: 'Arch Linux root filesystem', note: 'Never written. It holds the rescue system you flash from.' },
-    { id: 'super', dev: '/dev/sdc60', kind: 'readonly', icon: 'bi-eye-fill', tile: 't-gray', role: 'iOS 16.5 System volume', note: 'Read only. XNU reads it through the CPU1 block server, which refuses every write.' },
+    { id: 'super', dev: '/dev/sdc60', kind: 'readonly', icon: 'bi-eye-fill', tile: 't-gray', role: 'iOS 16.5 System volume', note: 'Read only during test boots: XNU reads it through the CPU1 block server, which refuses every write. The one-time iOS volume setup from the IPSW is not part of this preview and will ask for its own confirmation.' },
   ],
 
   /* Boot arguments compiled into DirectBoot. `locked` ones are required for the system to boot. */
@@ -82,6 +82,11 @@ window.DATA = {
       text: 'Each file is hashed while it downloads and compared with the SHA-256 in version.json. The boot image is also checked with MD5, the same check the on-phone flasher uses.',
     },
     {
+      id: 'ipsw', icon: 'bi-file-earmark-zip', title: 'Get iOS',
+      kicker: 'Step 6',
+      text: 'iOS itself is not part of this project. The app downloads the official iOS 16.5 firmware (IPSW) straight from Apple to your Mac. The iOS System volume, the dyld shared cache and the cryptexes come from it.',
+    },
+    {
       id: 'profile', icon: 'bi-sliders', title: 'Choose kernel', autoDone: true,
       kicker: 'Step 6',
       text: 'Pick which build to flash. Both use the same boot image layout; they differ in the boot arguments baked into DirectBoot.',
@@ -124,8 +129,8 @@ window.DATA = {
 
   safety: [
     ['bi-lock-fill', 't-red', 'boot_b and userdata are never written', 'They hold the Arch Linux rescue system. The flasher refuses any plan that names them.'],
-    ['bi-play-circle-fill', 't-blue', 'Test boots only touch boot_a (/dev/sdc36)', 'The partition label is read back before every write.'],
+    ['bi-play-circle-fill', 't-blue', 'Test boots only write boot_a (/dev/sdc36)', 'The partition label is read back before every write. The iOS volume on super is read only while testing.'],
     ['bi-clock-history', 't-orange', 'Every boot is one-shot', 'slot_mgr.py a 1 0 arms slot A once; a hang makes the watchdog fall back to slot B.'],
-    ['bi-check2-circle', 't-green', 'Every file is verified', 'SHA-256 from version.json while downloading, MD5 of the partition after flashing.'],
+    ['bi-check2-circle', 't-green', 'Every file is verified', 'SHA-256 from version.json for release files, SHA-256 of the iOS IPSW, MD5 of the partition after flashing.'],
   ],
 };

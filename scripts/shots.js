@@ -33,7 +33,8 @@ module.exports = function shots(getWindow, dir) {
     await click('[data-action=next]'); await sleep(600);
     await click('[data-action=download]'); await sleep(6500); await shot('05-install-download');
     await click('[data-action=next]'); await shot('06-install-verify');
-    await click('[data-action=next]'); await shot('07-install-kernel');
+    await click('[data-action=next]'); await shot('06b-install-ipsw');
+    await click('[data-action=ipsw-skip]'); await click('[data-action=next]'); await shot('07-install-kernel');
     await click('[data-action=next]'); await click('[data-action=confirm]'); await shot('08-install-flash');
     await click('.step-card summary'); await shot('08b-install-flash-command');
     win.setSize(900, 620); await sleep(500); await shot('08c-install-short');

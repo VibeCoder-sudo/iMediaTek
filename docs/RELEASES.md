@@ -18,6 +18,16 @@ A release is a GitHub release tagged `v<version>` that contains the payload file
   "profiles": [
     { "id": "stable", "title": "Stable", "subtitle": "CPU rendering", "image": "rosemary_xnu_boot.img", "bootArgs": "..." }
   ],
+  "ipsw": {
+    "device": "iPhone10,3 / iPhone10,6",
+    "version": "16.5",
+    "build": "20F66",
+    "file": "iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw",
+    "url": "https://updates.cdn-apple.com/.../iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw",
+    "size": 6165698198,
+    "sha256": "<64 hex characters>",
+    "source": "Apple CDN (updates.cdn-apple.com)"
+  },
   "assets": [
     {
       "name": "rosemary_xnu_boot.img",
@@ -38,6 +48,7 @@ A release is a GitHub release tagged `v<version>` that contains the payload file
 - Asset names match `[A-Za-z0-9][A-Za-z0-9._-]*` (no paths).
 - Every asset has an integer `size` and a `sha256`. `md5` is optional (the boot image carries it because the on-phone flasher compares MD5).
 - Asset URLs are `https` and end up on `github.com`, `objects.githubusercontent.com` or `release-assets.githubusercontent.com` after redirects.
+- The optional `ipsw` block points at Apple, never at this repository: `url` must be https on `updates.cdn-apple.com` or `appldnld.apple.com` (also after redirects), `file` is a safe `.ipsw` name, `size` and `sha256` are required. The IPSW is downloaded by the app directly from Apple, resumed with HTTP Range, and accepted only when the SHA-256 matches; a mismatch deletes the partial file.
 - A published manifest must not contain `"demo": true`.
 - While downloading, bytes are counted and hashed; a file larger than `size`, or with a different hash, is deleted and reported as a mismatch.
 

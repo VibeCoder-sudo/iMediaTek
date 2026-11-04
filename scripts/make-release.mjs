@@ -76,6 +76,7 @@ const manifest = {
   target: template.target,
   protected: template.protected,
   profiles: template.profiles,
+  ipsw: template.ipsw,
   assets,
 };
 

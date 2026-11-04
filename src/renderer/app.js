@@ -6,9 +6,10 @@
 
   const store = {
     get(key, fallback) {
+      key = `v2.${key}`;
       try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); } catch (e) { return fallback; }
     },
-    set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode */ } },
+    set(key, value) { try { localStorage.setItem(`v2.${key}`, JSON.stringify(value)); } catch (e) { /* private mode */ } },
   };
 
   const state = {
@@ -25,6 +26,7 @@
     manifestError: null,
     download: { running: false, progress: {}, results: null, dir: null },
     inspect: null,
+    ipsw: { status: 'idle', received: 0, total: 0, speed: 0, eta: null, path: null, error: null, free: null, dir: null, skipped: false },
     busy: false,
     anim: null,
     pop: null,
@@ -38,6 +40,8 @@
   const icon = (name) => `<i class="bi ${name}"></i>`;
   // An SVG tick centres exactly; a glyph from the icon font sits wherever its metrics put it.
   const CHECK = '<svg class="tick" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.4 8.1 6.4 11.1 12.6 4.9" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const gb = (n) => `${(n / 1e9).toFixed(2)} GB`;
+  const dur = (s) => (s == null || !isFinite(s) ? '' : s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
   const bytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
   const $ = (selector) => document.querySelector(selector);
 
@@ -91,6 +95,7 @@
   }
 
   const rangePct = (v) => Math.round(((v - 60) / (900 - 60)) * 100);
+  const IPSW_STEP = D.steps.findIndex((st) => st.id === 'ipsw');
   const stepUnlocked = (i) => i === 0 || state.done.has(i - 1) || state.done.has(i);
 
   /* ---------- views ---------- */
@@ -198,6 +203,7 @@
       case 'prepare': return prepareBody(s);
       case 'download': return downloadBody();
       case 'verify': return verifyBody();
+      case 'ipsw': return ipswBody();
       case 'profile': return profileBody();
       case 'flash': return flashBody(s);
       case 'observe': return observeBody(s);
@@ -265,6 +271,44 @@
         <span class="badge ${r.ok ? 'green' : 'red'}">${r.simulated ? 'simulated' : r.ok ? 'match' : 'MISMATCH'}</span></div>`;
     }).join('')}</div>
     ${res.every((r) => r.ok) ? '' : '<div class="callout red" style="margin-top:12px">' + icon('bi-x-octagon-fill') + '<div><b>A file does not match its hash.</b> It was deleted. Download again; if it keeps failing, do not flash.</div></div>'}`;
+  }
+
+  function ipswBody() {
+    const info = state.manifest && state.manifest.ipsw;
+    if (!info) return `<div class="callout">${icon('bi-exclamation-triangle-fill')}<div>This release does not list an iOS firmware. Load a release first.</div></div>`;
+    const ip = state.ipsw;
+    const pct = ip.total ? Math.min(100, Math.round((ip.received / ip.total) * 100)) : 0;
+    const low = ip.free != null && ip.free < info.size * 2.2;
+    const busy = ip.status === 'downloading' || ip.status === 'verifying';
+    let main;
+    if (ip.status === 'ok') {
+      main = `<div class="row"><span class="icon-tile t-green">${icon('bi-patch-check-fill')}</span><div class="grow"><div class="title">Firmware verified</div><div class="sub mono" style="word-break:break-all">${esc(ip.path || '')}</div></div><span class="badge green">SHA-256 match</span></div>`;
+    } else if (ip.skipped) {
+      main = `<div class="row"><span class="icon-tile t-gray">${icon('bi-skip-forward-fill')}</span><div class="grow"><div class="title">Skipped</div><div class="sub">The iOS volume is already on the phone.</div></div></div>`;
+    } else {
+      const label = ip.status === 'verifying' ? 'Verifying SHA-256…' : ip.status === 'downloading' ? 'Downloading from Apple' : ip.status === 'paused' ? 'Paused' : ip.received ? 'Partial download found' : 'Not downloaded yet';
+      const detail = ip.received ? `${gb(ip.received)} of ${gb(info.size)}${ip.status === 'downloading' && ip.speed ? ` · ${(ip.speed / 1e6).toFixed(1)} MB/s · ${dur(ip.eta)} left` : ''}` : `${gb(info.size)} download`;
+      main = `<div class="row"><div class="grow"><div class="title">${label}</div><div class="sub" id="ipswDetail">${esc(detail)}</div>
+        <div class="progress ${ip.status === 'verifying' ? 'ok' : ''}" style="margin-top:8px"><i id="ipswBar" style="width:${pct}%"></i></div></div><div class="value" id="ipswPct">${pct}%</div></div>`;
+    }
+    return `
+      <div class="group">
+        <div class="row"><span class="icon-tile t-blue">${icon('bi-phone-fill')}</span><div class="grow"><div class="title">iOS ${esc(info.version)} (${esc(info.build)})</div><div class="sub">${esc(info.device)} · ${gb(info.size)}</div></div><span class="badge">Official</span></div>
+        <div class="row"><span class="icon-tile t-gray">${icon('bi-cloud-fill')}</span><div class="grow"><div class="title">Source</div><div class="sub">${esc(info.source || 'Apple CDN')}</div></div></div>
+        <div class="row"><span class="icon-tile t-gray">${icon('bi-hash')}</span><div class="grow"><div class="title">SHA-256</div><div class="hash">${esc(info.sha256)}</div></div></div>
+        ${ip.free != null ? `<div class="row"><span class="icon-tile ${low ? 't-orange' : 't-gray'}">${icon('bi-hdd-fill')}</span><div class="grow"><div class="title">Free space</div><div class="sub">${gb(ip.free)} available · about ${gb(info.size * 2.2)} recommended</div></div>${low ? '<span class="badge orange">Low</span>' : ''}</div>` : ''}
+        ${main}
+      </div>
+      ${ip.error ? `<div class="callout red" style="margin-top:12px">${icon('bi-x-octagon-fill')}<div>${esc(ip.error)}</div></div>` : ''}
+      <div style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${ip.status === 'downloading'
+          ? `<button class="btn secondary" data-action="ipsw-pause">${icon('bi-pause-fill')} Pause</button>`
+          : ip.status === 'ok' || ip.skipped ? `<button class="btn secondary" data-action="ipsw-show">${icon('bi-folder2-open')} Show in Finder</button>`
+          : `<button class="btn" data-action="ipsw-download" ${busy ? 'disabled' : ''}>${icon('bi-cloud-arrow-down-fill')} ${ip.received ? 'Resume download' : 'Download from Apple'}</button>`}
+        ${ip.status !== 'ok' && !ip.skipped ? `<button class="btn secondary" data-action="ipsw-pick" ${busy ? 'disabled' : ''}>${icon('bi-file-earmark-arrow-up')} I already have it…</button>
+        <button class="btn plain" data-action="ipsw-skip" ${busy ? 'disabled' : ''}>My phone already has iOS</button>` : ''}
+      </div>
+      <p class="footnote">The firmware is downloaded directly from Apple's servers to this Mac. iMediaTek does not host or redistribute it, and using it is subject to Apple's license terms. The download can be paused and resumed.</p>`;
   }
 
   function profileBody() {
@@ -435,6 +479,7 @@
       state.source = result.source;
       state.manifestError = result.error || null;
       state.download = { running: false, progress: {}, results: null, dir: null };
+      refreshIpsw();
       log(result.source === 'remote' ? `Loaded version.json v${result.manifest.version} from GitHub Releases` : `No release feed (${result.error}); using the demo manifest`, result.source === 'remote' ? 'ok' : 'warn');
       if (!quiet) toast(result.source === 'remote' ? `Release ${result.manifest.version} found` : 'Demo manifest loaded');
     } catch (error) {
@@ -459,6 +504,57 @@
       toast('Download failed');
     }
     dl.running = false; persist(); render();
+  }
+
+  const ipswInfo = () => state.manifest && state.manifest.ipsw;
+
+  async function refreshIpsw() {
+    const info = ipswInfo();
+    if (!info) return;
+    try {
+      const st = await api.ipswStatus(info);
+      const ip = state.ipsw;
+      ip.free = st.free; ip.dir = st.dir; ip.total = info.size;
+      if (st.ready) { ip.status = 'ok'; ip.path = st.path; ip.received = info.size; state.done.add(IPSW_STEP); }
+      else if (st.partial) { ip.status = 'paused'; ip.received = st.partial; }
+      persist(); render();
+    } catch (error) { log(`iOS firmware status: ${error.message}`, 'err'); }
+  }
+
+  async function ipswDownload() {
+    const info = ipswInfo();
+    const ip = state.ipsw;
+    ip.status = 'downloading'; ip.error = null; ip.total = info.size; render();
+    log(`Downloading ${info.file} from Apple (${gb(info.size)})`);
+    try {
+      const result = await api.ipswDownload(info);
+      if (result.ok) {
+        ip.status = 'ok'; ip.path = result.path; ip.received = info.size; state.done.add(IPSW_STEP);
+        log('iOS firmware downloaded and verified (SHA-256)', 'ok'); toast('iOS firmware verified');
+      } else if (result.paused) {
+        ip.status = 'paused'; ip.received = result.received || ip.received; log('iOS download paused');
+      } else {
+        ip.status = 'error'; ip.error = result.error || 'The download failed'; log(`iOS download: ${ip.error}`, 'err');
+        if (!/SHA-256/.test(ip.error)) ip.status = 'paused';
+        if (/SHA-256/.test(ip.error)) ip.received = 0;
+      }
+    } catch (error) {
+      ip.status = ip.received ? 'paused' : 'idle'; ip.error = error.message; log(`iOS download failed: ${error.message}`, 'err');
+    }
+    persist(); render();
+  }
+
+  async function ipswPick() {
+    const info = ipswInfo();
+    const ip = state.ipsw;
+    ip.status = 'verifying'; ip.error = null; ip.total = info.size; ip.received = 0; render();
+    try {
+      const result = await api.ipswPick(info);
+      if (result.canceled) { ip.status = ip.received ? 'paused' : 'idle'; }
+      else if (result.ok) { ip.status = 'ok'; ip.path = result.path; ip.received = info.size; state.done.add(IPSW_STEP); log(`Using ${result.path} (SHA-256 verified)`, 'ok'); toast('Firmware verified'); }
+      else { ip.status = 'idle'; ip.received = 0; ip.error = `That file is not the expected firmware: ${result.error}`; log(ip.error, 'err'); }
+    } catch (error) { ip.status = 'idle'; ip.error = error.message; }
+    persist(); render();
   }
 
   async function runStep(stepName) {
@@ -499,6 +595,11 @@
     confirm: () => { state.confirmed = !state.confirmed; if (state.confirmed) state.pop = 'confirm'; render(); },
     mark: () => { state.done.add(state.step); persist(); render(); },
     refresh: () => loadManifest(false),
+    'ipsw-download': () => ipswDownload(),
+    'ipsw-pause': () => { api.ipswPause(); },
+    'ipsw-pick': () => ipswPick(),
+    'ipsw-skip': () => { state.ipsw.skipped = true; state.done.add(state.step); toast('Skipped: the phone already has iOS'); persist(); render(); },
+    'ipsw-show': () => { if (state.ipsw.path) api.openFolder(state.ipsw.path); },
     download: () => runDownload(),
     folder: () => { if (state.download.dir) api.openFolder(state.download.dir); },
     profile: (el) => { applyPreset(el.dataset.id); render(); },
@@ -546,6 +647,19 @@
       if (bar) bar.style.width = `${pct}%`;
       if (label) label.textContent = `${pct}%`;
     }
+  });
+
+  api.onIpswProgress((p) => {
+    const ip = state.ipsw;
+    ip.received = p.received; ip.total = p.total; ip.speed = p.speed || 0; ip.eta = p.eta;
+    if (p.phase === 'verify' && ip.status !== 'verifying') { ip.status = 'verifying'; render(); return; }
+    if (state.view !== 'install' || D.steps[state.step].id !== 'ipsw') return;
+    const info = ipswInfo();
+    const pct = Math.min(100, Math.round((p.received / p.total) * 100));
+    const bar = $('#ipswBar'); const label = $('#ipswPct'); const detail = $('#ipswDetail');
+    if (bar) bar.style.width = `${pct}%`;
+    if (label) label.textContent = `${pct}%`;
+    if (detail && info) detail.textContent = p.phase === 'verify' ? `Checking the file… ${pct}%` : `${gb(p.received)} of ${gb(info.size)}${p.speed ? ` · ${(p.speed / 1e6).toFixed(1)} MB/s · ${dur(p.eta)} left` : ''}`;
   });
 
   ensureArgs();

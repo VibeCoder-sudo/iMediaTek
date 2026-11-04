@@ -20,16 +20,17 @@ This is the manual procedure the installer automates. It assumes the Arch Linux 
    ```
    `sdc36` must say `boot_a`. If it does not, stop.
 3. **Download and verify** the release files (the installer does it; by hand: compare `sha256sum` with `version.json`).
-4. **Pick the build.** *Stable* boots with CPU rendering. *Metal on Mali* adds `mali=1 metal=2 camtl=1 metal_profile=1 mali_trace=0` and is experimental.
-5. **Flash `boot_a`.** `flash_boot_a.py` checks that `sdc36` is `boot_a`, streams the image, compares the MD5 and only then arms the one-shot boot.
+4. **Get iOS.** Download the official iOS 16.5 (20F66) firmware for iPhone10,3 / iPhone10,6 from Apple (about 6.2 GB) and check its SHA-256 (`c1091c40...07d52f2`). The installer does this with resume; skip it if the phone already has the iOS volume.
+5. **Pick the build.** *Stable* boots with CPU rendering. *Metal on Mali* adds `mali=1 metal=2 camtl=1 metal_profile=1 mali_trace=0` and is experimental.
+6. **Flash `boot_a`.** `flash_boot_a.py` checks that `sdc36` is `boot_a`, streams the image, compares the MD5 and only then arms the one-shot boot.
    ```bash
    python3 flash_boot_a.py
    ```
-6. **One-shot boot.**
+7. **One-shot boot.**
    ```bash
    /usr/local/bin/slot_mgr.py a 1 0 && reboot -f
    ```
-7. **Watch the phone.**
+8. **Watch the phone.**
 
    | Time | What you see |
    | --- | --- |
@@ -40,7 +41,7 @@ This is the manual procedure the installer automates. It assumes the Arch Linux 
    | 5:00 | The phone resets and boots back into Arch (`loader_return_after=300`) |
 
    To leave early: hold five fingers on the screen for 1.5 seconds, or hold the power button.
-8. **Read the log.** DirectBoot mirrors the kernel log into the ramoops console zone.
+9. **Read the log.** DirectBoot mirrors the kernel log into the ramoops console zone.
    ```bash
    mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore
    cat /sys/fs/pstore/console-ramoops-0

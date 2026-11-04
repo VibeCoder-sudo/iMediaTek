@@ -6,9 +6,20 @@
   "channel": "preview",
   "released": "2026-11-04T00:00:00Z",
   "notes": "Demo manifest bundled with the app. It is used when no release has been published yet; downloads are simulated.",
-  "device": { "codename": "rosemary", "model": "POCO M5s", "soc": "MediaTek Helio G95 (MT6785)", "gpu": "Mali-G76 MC4" },
-  "target": { "slot": "boot_a", "partition": "/dev/sdc36" },
-  "protected": ["boot_b", "userdata"],
+  "device": {
+    "codename": "rosemary",
+    "model": "POCO M5s",
+    "soc": "MediaTek Helio G95 (MT6785)",
+    "gpu": "Mali-G76 MC4"
+  },
+  "target": {
+    "slot": "boot_a",
+    "partition": "/dev/sdc36"
+  },
+  "protected": [
+    "boot_b",
+    "userdata"
+  ],
   "profiles": [
     {
       "id": "stable",
@@ -25,6 +36,17 @@
       "bootArgs": "debug=0x8 serial=0 cpumask=0xdd small_cores=0 mtk_touch=1 mali=1 metal=2 camtl=1 metal_profile=1 mali_trace=0 keepsyms=1 rd=md0 pagesize16k=1 ufs_shared_pa=0xd5380000 root_apfs=ufs_super loader_return_after=300"
     }
   ],
+  "ipsw": {
+    "device": "iPhone10,3 / iPhone10,6",
+    "version": "16.5",
+    "build": "20F66",
+    "file": "iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw",
+    "url": "https://updates.cdn-apple.com/2023SpringFCS/fullrestores/032-85130/6AB0D10A-8AF9-4F6C-8CF5-A1B315CABE88/iPhone10,3,iPhone10,6_16.5_20F66_Restore.ipsw",
+    "size": 6165698198,
+    "sha256": "c1091c401f67e3aa7cdfeb2cc19e6c79be3c957aae4e097a019e9ccea07d52f2",
+    "sha1": "6ee6e5b447902dbb36a3991ca20d032d6b4cc759",
+    "source": "Apple CDN (updates.cdn-apple.com)"
+  },
   "assets": [
     {
       "name": "rosemary_xnu_boot.img",

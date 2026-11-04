@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
+const ipswLib = require('./ipsw');
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -46,6 +47,7 @@ function validateManifest(manifest) {
       throw new Error(`${asset.name}: url host is not allowed`);
     }
   }
+  if (manifest.ipsw !== undefined) ipswLib.validateIpsw(manifest.ipsw);
   return manifest;
 }
 
