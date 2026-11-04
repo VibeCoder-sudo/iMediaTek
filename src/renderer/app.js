@@ -167,33 +167,31 @@
     const s = D.steps[state.step];
     return `
       <h1>Install</h1>
-      <p class="lede">Ten steps from a connected phone to a one-shot boot. Nothing is skipped.</p>
-      <div class="callout" style="margin-bottom:18px">${icon('bi-exclamation-triangle-fill')}<div><b>Dry run.</b> This build simulates every device action. No file is written to the phone.</div></div>
-      <div class="wizard">
-        <ol class="steps">
-          ${D.steps.map((st, i) => `
-            <li class="${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''} ${stepUnlocked(i) ? '' : 'locked'}" data-action="step" data-i="${i}">
-              <span class="step-dot">${state.done.has(i) ? icon('bi-check-lg') : i + 1}</span>
-              <span class="name">${st.title}</span>
-            </li>`).join('')}
-        </ol>
-        <div class="step-card">
-          <div class="kicker">${esc(s.kicker)}</div>
-          <h2>${icon(s.icon)}&nbsp; ${esc(s.title)}</h2>
-          <p>${esc(s.text)}</p>
-          ${stepBody(s)}
-          <div class="step-actions">
-            <button class="btn secondary" data-action="prev" ${state.step === 0 ? 'disabled' : ''}>${icon('bi-chevron-left')} Back</button>
-            <span class="spacer"></span>
-            ${state.step === D.steps.length - 1
-              ? `<button class="btn" data-action="finish" ${state.done.has(state.step) ? '' : 'disabled'}>${icon('bi-check2-circle')} Finish</button>`
-              : `<button class="btn" data-action="next" ${state.done.has(state.step) ? '' : 'disabled'}>Continue ${icon('bi-chevron-right')}</button>`}
-          </div>
+      <p class="lede">Ten steps from a connected phone to a one-shot boot.</p>
+      <div class="callout" style="margin-bottom:22px">${icon('bi-exclamation-triangle-fill')}<div><b>Dry run.</b> This build simulates every device action. Nothing is written to the phone.</div></div>
+      <div class="stepper" role="list">
+        ${D.steps.map((st, i) => `
+          <button class="sdot ${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''}" role="listitem" data-action="step" data-i="${i}" title="${esc(st.title)}" ${stepUnlocked(i) ? '' : 'disabled'}>${state.done.has(i) ? icon('bi-check-lg') : i + 1}</button>
+          ${i < D.steps.length - 1 ? `<span class="sline ${state.done.has(i) ? 'done' : ''}"></span>` : ''}`).join('')}
+      </div>
+      <div class="step-card">
+        <div class="kicker">Step ${state.step + 1} of ${D.steps.length}</div>
+        <h2>${icon(s.icon)}<span>${esc(s.title)}</span></h2>
+        <p>${esc(s.text)}</p>
+        ${stepBody(s)}
+        <div class="step-actions">
+          <button class="btn secondary" data-action="prev" ${state.step === 0 ? 'disabled' : ''}>${icon('bi-chevron-left')} Back</button>
+          <span class="spacer"></span>
+          ${state.step === D.steps.length - 1
+            ? `<button class="btn" data-action="finish" ${state.done.has(state.step) ? '' : 'disabled'}>${icon('bi-check2-circle')} Finish</button>`
+            : `<button class="btn" data-action="next" ${state.done.has(state.step) ? '' : 'disabled'}>Continue ${icon('bi-chevron-right')}</button>`}
         </div>
-      </div>`;
+      </div>
+    </div>`;
   }
 
-  const cmdBox = (c) => `<div class="cmd"><code>${esc(c)}</code><button data-action="copy" data-text="${esc(c)}" title="Copy">${icon('bi-clipboard')}</button></div>`;
+  const cmdLine = (c) => `<div class="cmd"><code>${esc(c)}</code><button data-action="copy" data-text="${esc(c)}" title="Copy">${icon('bi-clipboard')}</button></div>`;
+  const cmdBox = (c) => `<details class="disclose"><summary>${icon('bi-chevron-right')}<span>Show command</span></summary>${cmdLine(c)}</details>`;
 
   function stepBody(s) {
     switch (s.id) {
@@ -277,7 +275,7 @@
         <div class="grow"><div class="title">${p.title}</div><div class="sub">${p.subtitle}</div></div>
         ${state.profile === p.id ? `<span class="badge blue">${icon('bi-check-lg')} Selected</span>` : ''}
       </div>`).join('')}</div>
-      <div class="section-label">Boot arguments</div>${cmdBox(cmdline())}
+      <div class="section-label">Boot arguments</div>${cmdLine(cmdline())}
       <p class="footnote">Fine-tune them in Configuration. The same boot image is flashed either way.</p>`;
   }
 
@@ -332,7 +330,7 @@
         <div class="row"><div class="grow"><div class="title mono">${a.key}=${a.value}</div><div class="sub">${esc(a.desc)}${a.locked ? ' · required' : ''}</div></div>
           <label class="toggle"><input type="checkbox" data-action="arg" data-key="${a.key}" ${(a.locked || state.args[a.key]) ? 'checked' : ''} ${a.locked ? 'disabled' : ''}><span></span></label></div>`).join('')}</div>
       <div class="section-label">Resulting command line</div>
-      ${cmdBox(cmdline())}
+      ${cmdLine(cmdline())}
       <p class="footnote">The command line is compiled into DirectBoot today. The final flasher will rebuild the image from these choices.</p>`;
   }
 
@@ -351,7 +349,7 @@
       </div>
       ${state.manifestError ? `<p class="footnote">${icon('bi-exclamation-circle')} ${esc(state.manifestError)}</p>` : ''}
       ${m ? `<div class="section-label">Files</div>
-      <div class="group"><table class="table"><thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>
+      <div class="group scroll-x"><table class="table"><thead><tr><th>File</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>
         ${m.assets.map((a) => `<tr><td><b>${esc(a.name)}</b><div class="sub" style="color:var(--text-2)">${esc(a.role || '')}</div></td><td>${bytes(a.size)}</td><td class="hash">${esc(a.sha256)}</td></tr>`).join('')}
       </tbody></table></div>
       ${m.notes ? `<p class="footnote">${esc(m.notes)}</p>` : ''}
@@ -371,7 +369,7 @@
         <button class="btn secondary small" data-action="copylog">${icon('bi-clipboard')} Copy</button>
         <button class="btn secondary small" data-action="clearlog">${icon('bi-trash')} Clear</button></div>
       <div class="section-label">Read the phone log by hand</div>
-      ${cmdBox("python3 phone_sh.py 'mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore; cat /sys/fs/pstore/console-ramoops-0' 30")}`;
+      ${cmdLine("python3 phone_sh.py 'mountpoint -q /sys/fs/pstore || mount -t pstore pstore /sys/fs/pstore; cat /sys/fs/pstore/console-ramoops-0' 30")}`;
   }
 
   /* ----- safety ----- */
@@ -405,7 +403,7 @@
     renderNav();
     const view = $('#view');
     const top = view.scrollTop;
-    view.innerHTML = VIEWS[state.view]();
+    view.innerHTML = `<div class="page">${VIEWS[state.view]()}</div>`;
     view.scrollTop = top;
     const box = $('#console');
     if (box) box.scrollTop = box.scrollHeight;

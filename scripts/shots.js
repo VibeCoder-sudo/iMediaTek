@@ -35,6 +35,9 @@ module.exports = function shots(getWindow, dir) {
     await click('[data-action=next]'); await shot('06-install-verify');
     await click('[data-action=next]'); await shot('07-install-kernel');
     await click('[data-action=next]'); await click('[data-action=confirm]'); await shot('08-install-flash');
+    await click('.step-card summary'); await shot('08b-install-flash-command');
+    win.setSize(900, 760); await sleep(400); await shot('08c-install-narrow');
+    win.setSize(1120, 760); await sleep(400);
     for (const id of ['config', 'releases', 'logs', 'safety']) {
       await click(`[data-action=nav][data-id=${id}]`);
       await shot(`09-${id}`);
