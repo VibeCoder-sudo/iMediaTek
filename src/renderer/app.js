@@ -130,11 +130,6 @@
         </div>
       </div>
 
-      <div class="callout blue" style="margin-top:16px">
-        ${icon('bi-info-circle-fill')}
-        <div><b>Front-end preview.</b> Downloads and hash checks are real once a release exists; device actions are dry runs that print what they would do and write nothing.</div>
-      </div>
-
       <div class="section-label">Device</div>
       <div class="group">
         ${deviceRow('bi-phone', 't-blue', 'Model', `${D.device.model} (${D.device.codename})`)}
@@ -170,29 +165,29 @@
   /* ----- install wizard ----- */
   function viewInstall() {
     const s = D.steps[state.step];
+    const last = state.step === D.steps.length - 1;
     return `
-      <h1>Install</h1>
-      <p class="lede">Ten steps from a connected phone to a one-shot boot.</p>
-      <div class="callout" style="margin-bottom:22px">${icon('bi-exclamation-triangle-fill')}<div><b>Dry run.</b> This build simulates every device action. Nothing is written to the phone.</div></div>
+      <div class="page-head"><h1>Install</h1><span class="badge orange">${icon('bi-exclamation-triangle-fill')} Dry run · nothing is written</span></div>
       <div class="stepper" role="list">
         ${D.steps.map((st, i) => `
           <button class="sdot ${i === state.step ? 'current' : ''} ${state.done.has(i) ? 'done' : ''}" role="listitem" data-action="step" data-i="${i}" title="${esc(st.title)}" ${stepUnlocked(i) ? '' : 'disabled'}>${state.done.has(i) ? CHECK : i + 1}</button>
           ${i < D.steps.length - 1 ? `<span class="sline ${state.done.has(i) ? 'done' : ''}"></span>` : ''}`).join('')}
       </div>
       <div class="step-card">
-        <div class="kicker">Step ${state.step + 1} of ${D.steps.length}</div>
-        <h2>${icon(s.icon)}<span>${esc(s.title)}</span></h2>
-        <p>${esc(s.text)}</p>
-        ${stepBody(s)}
+        <div class="step-head">
+          <div class="kicker">Step ${state.step + 1} of ${D.steps.length}</div>
+          <h2>${icon(s.icon)}<span>${esc(s.title)}</span></h2>
+          <p>${esc(s.text)}</p>
+        </div>
+        <div class="step-body">${stepBody(s)}</div>
         <div class="step-actions">
           <button class="btn secondary" data-action="prev" ${state.step === 0 ? 'disabled' : ''}>${icon('bi-chevron-left')} Back</button>
           <span class="spacer"></span>
-          ${state.step === D.steps.length - 1
+          ${last
             ? `<button class="btn" data-action="finish" ${state.done.has(state.step) ? '' : 'disabled'}>${icon('bi-check2-circle')} Finish</button>`
             : `<button class="btn" data-action="next" ${state.done.has(state.step) ? '' : 'disabled'}>Continue ${icon('bi-chevron-right')}</button>`}
         </div>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   const cmdLine = (c) => `<div class="cmd"><code>${esc(c)}</code><button data-action="copy" data-text="${esc(c)}" title="Copy">${icon('bi-clipboard')}</button></div>`;
@@ -331,7 +326,7 @@
       </div>
 
       <div class="section-label">Boot arguments</div>
-      <div class="group">${D.bootArgs.map((a) => `
+      <div class="group args">${D.bootArgs.map((a) => `
         <div class="row"><div class="grow"><div class="title mono">${a.key}=${a.value}</div><div class="sub">${esc(a.desc)}${a.locked ? ' · required' : ''}</div></div>
           <label class="toggle"><input type="checkbox" data-action="arg" data-key="${a.key}" ${(a.locked || state.args[a.key]) ? 'checked' : ''} ${a.locked ? 'disabled' : ''}><span></span></label></div>`).join('')}</div>
       <div class="section-label">Resulting command line</div>
@@ -408,8 +403,12 @@
     renderNav();
     const view = $('#view');
     const top = view.scrollTop;
+    const bodyTop = (view.querySelector('.step-body') || {}).scrollTop || 0;
+    view.classList.toggle('fill', state.view === 'install');
     view.innerHTML = `<div class="page">${VIEWS[state.view]()}</div>`;
     view.scrollTop = top;
+    const body = view.querySelector('.step-body');
+    if (body && state.anim !== 'step' && state.anim !== 'page') body.scrollTop = bodyTop;
     // One-shot motion: a render caused by navigation fades in; a plain re-render stays still.
     if (state.anim) {
       const target = state.anim === 'step' ? view.querySelector('.step-card') : view.querySelector('.page');
