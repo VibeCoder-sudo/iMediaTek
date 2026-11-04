@@ -1,7 +1,7 @@
 {
   "name": "imediatek",
   "productName": "iMediaTek",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Flasher for the iMediaTek proof of concept: iOS 16.5 (XNU) on the POCO M5s (MediaTek Helio G95).",
   "main": "main.js",
   "license": "MIT",
