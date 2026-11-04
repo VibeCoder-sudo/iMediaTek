@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "demo": true,
+  "name": "iMediaTek PoC",
+  "version": "0.1.0",
+  "channel": "preview",
+  "released": "2026-11-04T00:00:00Z",
+  "notes": "Demo manifest bundled with the app. It is used when no release has been published yet; downloads are simulated.",
+  "device": { "codename": "rosemary", "model": "POCO M5s", "soc": "MediaTek Helio G95 (MT6785)", "gpu": "Mali-G76 MC4" },
+  "target": { "slot": "boot_a", "partition": "/dev/sdc36" },
+  "protected": ["boot_b", "userdata"],
+  "profiles": [
+    {
+      "id": "stable",
+      "title": "Stable",
+      "subtitle": "CPU rendering",
+      "image": "rosemary_xnu_boot.img",
+      "bootArgs": "debug=0x8 serial=0 cpumask=0xdd small_cores=0 mtk_touch=1 keepsyms=1 rd=md0 pagesize16k=1 ufs_shared_pa=0xd5380000 root_apfs=ufs_super loader_return_after=300"
+    },
+    {
+      "id": "metal",
+      "title": "Metal on Mali",
+      "subtitle": "Experimental GPU path",
+      "image": "rosemary_xnu_boot.img",
+      "bootArgs": "debug=0x8 serial=0 cpumask=0xdd small_cores=0 mtk_touch=1 mali=1 metal=2 camtl=1 metal_profile=1 mali_trace=0 keepsyms=1 rd=md0 pagesize16k=1 ufs_shared_pa=0xd5380000 root_apfs=ufs_super loader_return_after=300"
+    }
+  ],
+  "assets": [
+    {
+      "name": "rosemary_xnu_boot.img",
+      "role": "Boot image for boot_a (LittleKernel header, DirectBoot, XNU kernel, ramdisk, DTB)",
+      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/rosemary_xnu_boot.img",
+      "size": 28409344,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "md5": "00000000000000000000000000000000"
+    },
+    {
+      "name": "slot_mgr.py",
+      "role": "One-shot slot switch helper, runs on the Arch rescue system",
+      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/slot_mgr.py",
+      "size": 4096,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "name": "flash_boot_a.py",
+      "role": "Safe flasher: checks the partition, streams the image, compares MD5",
+      "url": "https://github.com/VibeCoder-sudo/iMediaTek/releases/download/v0.1.0/flash_boot_a.py",
+      "size": 6144,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}

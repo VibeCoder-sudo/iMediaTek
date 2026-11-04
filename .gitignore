@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+.DS_Store
+*.log
+# Release payloads are uploaded to GitHub Releases, never committed.
+*.img
+*.macho
+*.apfs
+*.part
+releases/

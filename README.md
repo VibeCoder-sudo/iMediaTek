@@ -1,0 +1,107 @@
+# iMediaTek
+
+**iOS 16.5 (XNU `xnu-8796.121.2`) on the POCO M5s, a MediaTek Helio G95 phone.**
+This repository holds the installer: a small Electron app that walks you through flashing the proof of concept to the test slot and booting it once, without touching the Linux rescue system.
+
+> **Status: front-end preview (v0.1.0).** The interface, the release feed, downloading and hash checking are real. Every device action (connect, flash, one-shot boot, read log) is a **dry run** that prints what it would do and writes nothing. The device backend comes next.
+
+![Overview](docs/screenshots/overview.png)
+
+## What is in the proof of concept
+
+The phone boots Apple's open-source XNU kernel, built from source, through LittleKernel and a small AArch64 shim called DirectBoot:
+
+```
+LittleKernel (stock)  ->  DirectBoot  ->  XNU 8796  ->  init  ->  Apple launchd  ->  backboardd / SpringBoard
+```
+
+Verified on hardware: LK to XNU with 1008 MB of RAM, the iOS 16.5 `System` volume mounted from flash as root, Apple's `launchd`, working touch, a Mali-G76 driver that draws through Metal (AIR to NIR to Panfrost). SpringBoard on the GPU is still being brought up. See [docs/FLASHING.md](docs/FLASHING.md) for what a healthy boot looks like.
+
+**This repository contains no Apple software.** The kernel image, ramdisk and iOS root filesystem are not distributed here.
+
+## Safety model
+
+| Partition | Device | Role | Touched by this app |
+| --- | --- | --- | --- |
+| `boot_a` | `/dev/sdc36` | Test slot | **Written** (the only one) |
+| `boot_b` | `/dev/sdc56` | Arch Linux rescue kernel | Never |
+| `userdata` | `/dev/sdc61` | Arch Linux root filesystem | Never |
+| `super` | `/dev/sdc60` | iOS System volume | Read only, by the phone itself |
+
+- Every boot is **one-shot**: `slot_mgr.py a 1 0` arms slot A once, so a hang makes the hardware watchdog fall back to slot B (Arch).
+- The partition label of `/dev/sdc36` is read back before every write.
+- Every downloaded file is checked against its SHA-256; the boot image is also checked with MD5 after flashing.
+
+## The installer
+
+Ten steps, nothing skipped:
+
+1. **Prepare**: unlocked bootloader, Arch rescue on `boot_b`/`userdata`, battery, cable, how to leave a stuck boot.
+2. **Connect**: open the Arch console over USB (`/dev/cu.usbmodemnyam00011`).
+3. **Check slots**: read the partition table, refuse to go on if `sdc36` is not `boot_a`.
+4. **Download**: read `version.json` from the latest release and download every file.
+5. **Verify**: SHA-256 per file (MD5 for the boot image).
+6. **Choose kernel**: Stable (CPU rendering) or Metal on Mali (experimental GPU path).
+7. **Flash `boot_a`**: stream the image to `/dev/sdc36` and compare MD5.
+8. **One-shot boot**: `slot_mgr.py a 1 0 && reboot -f`.
+9. **Watch**: what you should see and when; how to leave early.
+10. **Read the log**: mount pstore and read `console-ramoops-0`.
+
+| | |
+| --- | --- |
+| ![Download](docs/screenshots/install-download.png) | ![Flash](docs/screenshots/install-flash.png) |
+| ![Configuration](docs/screenshots/configuration.png) | ![Releases](docs/screenshots/releases.png) |
+
+The **Configuration** page shows the slot map and every boot argument (required ones are locked), with presets and the resulting command line.
+
+## Releases and updates
+
+Each GitHub release carries a `version.json` next to the files the installer needs. The app downloads
+
+```
+https://github.com/VibeCoder-sudo/iMediaTek/releases/latest/download/version.json
+```
+
+directly, and then every asset URL in it. These are plain file downloads, **not REST API calls**, so there is no API rate limit to hit. The manifest is validated (schema, semver, `boot_a` target, `boot_b`/`userdata` protected, safe file names, allowed hosts) and every file is hashed while it downloads. A mismatch deletes the file.
+
+If no release exists yet, the app falls back to a bundled demo manifest and simulates downloads. Format and publishing steps: [docs/RELEASES.md](docs/RELEASES.md).
+
+## Run it
+
+Requires Node.js 20 or newer.
+
+```bash
+npm install
+npm start
+```
+
+Build a manifest for a release directory:
+
+```bash
+node scripts/make-release.mjs 0.1.0 ./release-files --notes "First preview"
+```
+
+`IMEDIATEK_SHOTS=<dir> npx electron .` renders every screen to PNG files and quits.
+
+## Design notes
+
+- Layout and controls follow macOS System Settings: translucent sidebar (native vibrancy on macOS), grouped lists, large titles, light and dark appearance.
+- Typeface: SF Pro, loaded from the jsDelivr CDN (npm package [`sf-pro`](https://www.npmjs.com/package/sf-pro)), with the system font stack as fallback.
+- Icons: [Bootstrap Icons](https://icons.getbootstrap.com/) from jsDelivr. Apple's SF Symbols cannot be redistributed, so these are the closest open stand-in.
+- SF Pro is Apple's typeface and is licensed for developing apps for Apple platforms. It is loaded from a public CDN here for the look of a research prototype; swap it for another face before shipping this as a product.
+
+## Layout
+
+```
+main.js, preload.js          Electron main process and the context-isolated bridge
+src/main/releases.js         version.json fetch + validation, downloads, SHA-256 / MD5
+src/main/backend-stub.js     dry-run device backend (replaced by the real one later)
+src/renderer/                the interface (plain HTML, CSS and JavaScript, no build step)
+data/demo-manifest.json      manifest used when no release exists
+scripts/make-release.mjs     builds version.json for a release
+docs/                        flashing guide and release format
+```
+
+## Legal
+
+Research project. "iPhone", "iOS", "Mac", "macOS" and "SF Pro" are trademarks of Apple Inc. iMediaTek is not affiliated with or endorsed by Apple, Xiaomi, POCO or MediaTek. Flashing a phone can make it unusable; you do it at your own risk. The installer code is MIT licensed, see [LICENSE](LICENSE).
